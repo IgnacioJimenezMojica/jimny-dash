@@ -260,21 +260,21 @@
 
 <!-- Panel de datos (widgets). Lo llena js/widgets.js; sin JavaScript no aparece. -->
 <section class="widgets" aria-label="Datos del viaje">
-  <div class="w w-vel">
+  <div data-tarjeta="vel" class="w w-vel">
     <div class="w-tit">Velocidad</div>
     <div class="w-num"><span data-w="vel">--</span><small>km/h</small><span class="limite" title="Límite de la calle (OpenStreetMap)"><span data-w="limite"></span></span></div>
     <div class="w-sub"><span data-w="prom">Prom. 0</span><span data-w="max">Máx. 0</span></div>
     <div class="w-nota" data-w="fuente">Activa el GPS</div>
     <div class="w-nota w-calle" data-w="calle"></div>
   </div>
-  <div class="w w-viaje" role="button" tabindex="0">
+  <div data-tarjeta="viaje" class="w w-viaje" role="button" tabindex="0">
     <div class="w-tit">Viaje</div>
     <div class="w-num"><span data-w="dist">0,0</span><small>km</small></div>
     <div class="w-sub" data-w="tiempo">0 min en movimiento</div>
     <div class="w-sub" data-w="costo"></div>
     <div class="w-nota"><span class="n-normal">Dos toques para reiniciar</span><span class="n-armado">Toca otra vez para reiniciar</span></div>
   </div>
-  <div class="w w-rumbo">
+  <div data-tarjeta="rumbo" class="w w-rumbo">
     <div class="w-tit">Rumbo</div>
     <div class="w-num">
       <svg class="flecha" data-w="flecha" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="11" fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.5"/><path d="M0,-8 L5,6 L0,3 L-5,6 Z" fill="currentColor"/></svg>
@@ -282,21 +282,38 @@
     </div>
     <div class="w-sub" data-w="alt">Altura: sin dato</div>
   </div>
-  <div class="w w-hora">
+  <div data-tarjeta="hora" class="w w-hora">
     <div class="w-tit">Hora</div>
     <div class="w-num" data-w="hora">--</div>
     <div class="w-sub" data-w="sol"></div>
     <div class="w-nota" data-w="luna"></div>
   </div>
-  <div class="w w-clima">
+  <div data-tarjeta="clima" class="w w-clima">
     <div class="w-tit">Clima</div>
     <div class="w-num" data-w="temp">sin dato</div>
     <div class="w-sub" data-w="cielo"></div>
+    <div class="w-lluvia"><span class="barras" data-w="barras" hidden aria-hidden="true"></span><span data-w="lluvia"></span></div>
   </div>
-  <div class="w w-carro" data-nivel="sin">
+  <div data-tarjeta="carro" class="w w-carro" data-nivel="sin">
     <div class="w-tit">Carro</div>
     <div class="w-num"><span data-w="odometro">--</span><small>km</small></div>
     <div class="w-sub" data-w="servicio">Configúralo en Ajustes</div>
+  </div>
+  <div data-tarjeta="gas" class="w w-gas sin-dato">
+    <div class="w-tit">Gasolinera</div>
+    <div class="w-fila-grande">
+      <svg class="flecha" data-w="gas-flecha" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0,-9 L6,7 L0,3 L-6,7 Z" fill="currentColor"/></svg>
+      <span class="w-nombre" data-w="gas1">Activa el GPS</span>
+      <span class="w-dist" data-w="gas1-dist"></span>
+    </div>
+    <div class="w-sub w-recorta" data-w="gas2"></div>
+    <div class="w-nota w-recorta" data-w="gas-nota"></div>
+  </div>
+  <div data-tarjeta="destino" class="w w-destino sin-dato" role="button" tabindex="0">
+    <div class="w-tit">Destino</div>
+    <div class="w-fila-grande"><span class="w-nombre" data-w="dest-nombre">Sin destinos</span></div>
+    <div class="w-sub" data-w="dest-dist"></div>
+    <div class="w-nota" data-w="dest-nota">Agrégalos en Ajustes</div>
   </div>
 </section>
 
@@ -306,11 +323,21 @@
     <h2>Ajustes</h2>
     <label class="boton chico" for="ajustes">Cerrar</label>
   </div>
+  <nav class="a-tabs" role="tablist" aria-label="Secciones de Ajustes">
+    <button type="button" role="tab" data-ir-tab="pantalla">Pantalla</button>
+    <button type="button" role="tab" data-ir-tab="carro">Carro</button>
+    <button type="button" role="tab" data-ir-tab="gasolina">Gasolina</button>
+    <button type="button" role="tab" data-ir-tab="destinos">Destinos</button>
+    <button type="button" role="tab" data-ir-tab="viajes">Viajes</button>
+    <button type="button" role="tab" data-ir-tab="sistema">Sistema</button>
+  </nav>
 
-  <section class="a-bloque">
+  <section data-tab="pantalla" class="a-bloque">
     <h3>Pantalla</h3>
     <div class="a-fila"><label class="boton chico b-datos" for="datos">Panel de datos</label></div>
-    <p class="a-ayuda">Muestra u oculta las tarjetas de velocidad, viaje, rumbo, hora, clima y carro.</p>
+    <p class="a-ayuda">Muestra u oculta todo el panel de datos.</p>
+    <div class="a-tarjetas" data-a="tarjetas" role="group" aria-label="Tarjetas que se ven"></div>
+    <p class="a-ayuda">Marca las tarjetas que quieres ver; las demás se esconden y el panel se acomoda. Una tarjeta escondida no consulta internet.</p>
     <div class="a-rejilla">
       <label>Cielo<select id="a-cielo">
         <option value="real">Según el clima real</option>
@@ -324,7 +351,7 @@
     <p class="a-ayuda" data-a="cielo-estado">Con el clima real, el cielo cambia según el dato del clima (necesita internet).</p>
   </section>
 
-  <section class="a-bloque">
+  <section data-tab="carro" class="a-bloque">
     <h3>Odómetro</h3>
     <p class="a-dato">Kilometraje: <b data-a="odo">sin configurar</b></p>
     <div class="a-fila">
@@ -334,7 +361,7 @@
     <p class="a-ayuda">Escribe lo que marca el tablero. Desde ahí el GPS va sumando lo que recorres con la pantalla encendida.</p>
   </section>
 
-  <section class="a-bloque">
+  <section data-tab="carro" class="a-bloque">
     <h3>Mantenimiento</h3>
     <p class="a-dato" data-a="mant">Sin configurar</p>
     <div class="a-rejilla">
@@ -351,13 +378,14 @@
     <ul class="a-lista" data-a="mant-hist"></ul>
   </section>
 
-  <section class="a-bloque">
+  <section data-tab="gasolina" class="a-bloque">
     <h3>Gasolina</h3>
     <div class="a-rejilla">
       <label>Ver en<select id="a-unidad"><option value="litro">Litros</option><option value="galon">Galones</option></select></label>
       <label><span>Precio por <span data-a="precio-unidad">litro</span> ($)</span><input id="a-precio" type="number" min="0" step="0.001" inputmode="decimal"></label>
       <label>Tipo<select id="a-tipo"><option value="91">91 octanos</option><option value="95">95 octanos</option></select></label>
       <label>Consumo (km por litro)<input id="a-consumo" type="number" min="1" step="0.1" inputmode="decimal"></label>
+      <label class="a-ancho">Gasolineras favoritas, en orden<input id="a-favoritas" type="text" placeholder="Puma, Texaco" autocomplete="off"></label>
     </div>
     <div class="a-fila"><button type="button" class="boton chico" data-accion="gas">Guardar</button></div>
     <p class="a-dato" data-a="costo-km"></p>
@@ -365,7 +393,28 @@
     <p class="a-ayuda" data-a="gas-ayuda"></p>
   </section>
 
-  <section class="a-bloque">
+  <section data-tab="destinos" class="a-bloque">
+    <h3>Destinos</h3>
+    <p class="a-ayuda">Lugares a los que vas seguido. En la tarjeta Destino se elige tocándola: pasa al siguiente y, después del último, a ninguno.</p>
+    <ul class="a-lista a-destinos" data-a="destinos"></ul>
+    <div class="a-rejilla">
+      <label class="a-ancho">Nombre del lugar<input id="a-dest-nombre" type="text" maxlength="40" placeholder="Mi casa, Casa de papá, Trabajo..." autocomplete="off"></label>
+    </div>
+    <div class="a-fila"><button type="button" class="boton chico" data-accion="dest-aqui">Guardar donde estoy</button></div>
+    <div class="a-fila">
+      <input id="a-dest-coord" type="text" placeholder="Coordenadas, ej. 8.98240, -79.51990" autocomplete="off">
+      <button type="button" class="boton chico" data-accion="dest-coord">Agregar</button>
+    </div>
+    <div class="a-fila">
+      <input id="a-dest-buscar" type="text" placeholder="Buscar dirección o lugar" autocomplete="off">
+      <button type="button" class="boton chico" data-accion="dest-buscar">Buscar</button>
+    </div>
+    <ul class="a-lista" data-a="dest-resultados"></ul>
+    <p class="a-dato" data-a="dest-msg"></p>
+    <p class="a-ayuda">Lo más preciso es "Guardar donde estoy" estando en el lugar. Para guardarlo desde lejos: en Google Maps deja el dedo sobre el lugar y copia los números que salen (las coordenadas). Los enlaces cortos de Google Maps (maps.app.goo.gl) no se pueden leer desde aquí. El buscador usa OpenStreetMap y en Panamá muchas direcciones no aparecen.</p>
+  </section>
+
+  <section data-tab="viajes" class="a-bloque">
     <h3>Plan de viaje</h3>
     <div class="a-rejilla">
       <label>Distancia del tramo (km)<input id="a-plan-km" type="number" min="0" step="1" inputmode="decimal"></label>
@@ -374,13 +423,13 @@
     <p class="a-dato a-grande" data-a="plan"></p>
   </section>
 
-  <section class="a-bloque">
+  <section data-tab="viajes" class="a-bloque">
     <h3>Historial</h3>
     <p class="a-dato" data-a="mes"></p>
     <ul class="a-lista" data-a="viajes"></ul>
   </section>
 
-  <section class="a-bloque a-diag">
+  <section data-tab="sistema" class="a-bloque a-diag">
     <h3>Diagnóstico de la pantalla</h3>
     <p class="a-ayuda">Para saber qué tiene esta pantalla: sensores de movimiento (para un inclinómetro 4x4), GPS e internet.</p>
     <ul class="a-lista" data-a="diag-pantalla"></ul>
@@ -394,7 +443,7 @@
     <p class="a-dato" data-a="diag-internet"></p>
   </section>
 
-  <section class="a-bloque">
+  <section data-tab="sistema" class="a-bloque">
     <h3>Respaldo</h3>
     <p class="a-ayuda">Todo se guarda en este navegador. Si se borran sus datos, se pierde: exporta un respaldo de vez en cuando.</p>
     <div class="a-fila">
@@ -418,6 +467,10 @@
 <script src="js/widgets.js"></script>
 <!-- Opcional: límite de velocidad y escena automática con OpenStreetMap -->
 <script src="js/mapa.js"></script>
+<!-- Gasolineras favoritas cercanas (OpenStreetMap) -->
+<script src="js/gasolineras.js"></script>
+<!-- Destinos guardados con distancia y tiempo por carretera (OSRM) -->
+<script src="js/destinos.js"></script>
 <!-- Opcional: el cielo sigue el clima real (sol, nubes, lluvia, tormenta) -->
 <script src="js/cielo.js"></script>
 <!-- Opcional: fase real de la luna -->

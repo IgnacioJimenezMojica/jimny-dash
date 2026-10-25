@@ -37,6 +37,7 @@
     $('a-precio').value = +db.precioEnUnidad().toFixed(3);
     $('a-tipo').value = d.combustible.tipo;
     $('a-consumo').value = d.combustible.consumoKmL;
+    $('a-favoritas').value = (d.combustible.favoritas || []).join(', ');
     $('a-plan-km').value = d.plan.km || '';
     $('a-plan-iv').checked = !!d.plan.idaVuelta;
     pintar();
@@ -114,6 +115,7 @@
       var precio = parseFloat($('a-precio').value), consumo = parseFloat($('a-consumo').value);
       if (!(precio > 0) || !(consumo > 0)) { aviso('Revisa el precio y el consumo.'); return; }
       c.unidad = $('a-unidad').value; db.fijarPrecio(precio, c.unidad); c.consumoKmL = consumo; c.tipo = $('a-tipo').value; c.precioFecha = hoyISO();
+      c.favoritas = $('a-favoritas').value.split(',').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 5);
       db.guardar(); aviso('Gasolina guardada.');
     } else if (accion === 'exportar') {
       var texto = db.exportar();
@@ -238,8 +240,54 @@
     this.value = '';
   });
 
-  casilla.addEventListener('change', function () { if (casilla.checked) { aviso(''); cargarFormulario(); pintarPantalla(); } });
+  // ---------- Pestañas (se recuerda la última) ----------
+  var TABS = ['pantalla', 'carro', 'gasolina', 'destinos', 'viajes', 'sistema'];
+  function abrirTab(nombre) {
+    if (TABS.indexOf(nombre) < 0) nombre = 'pantalla';
+    var primero = true;
+    panel.querySelectorAll('[data-tab]').forEach(function (sec) {
+      sec.hidden = sec.getAttribute('data-tab') !== nombre;
+      sec.classList.toggle('primero', !sec.hidden && primero);
+      if (!sec.hidden) primero = false;
+    });
+    panel.querySelectorAll('[data-ir-tab]').forEach(function (b) {
+      var activa = b.getAttribute('data-ir-tab') === nombre;
+      b.classList.toggle('activa', activa);
+      b.setAttribute('aria-selected', activa ? 'true' : 'false');
+    });
+    panel.scrollTop = 0;
+    try { localStorage.setItem('jimny-ajustes-tab', nombre); } catch (e) { /* sin almacenamiento */ }
+  }
+  panel.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-ir-tab]');
+    if (b) abrirTab(b.getAttribute('data-ir-tab'));
+  });
+  var tabGuardada = null;
+  try { tabGuardada = localStorage.getItem('jimny-ajustes-tab'); } catch (e) { /* nada */ }
+  abrirTab(tabGuardada);
+
+  // ---------- Tarjetas que se ven ----------
+  function pintarTarjetas() {
+    var cont = a('tarjetas'), W = window.jimnyWidgets;
+    if (!cont || !W) return;
+    cont.innerHTML = '';
+    Object.keys(W.NOMBRES_TARJETAS).forEach(function (clave) {
+      var etiqueta = document.createElement('label');
+      etiqueta.className = 'a-check a-tarjeta';
+      var c = document.createElement('input');
+      c.type = 'checkbox'; c.checked = W.tarjetaVisible(clave); c.setAttribute('data-tarjeta-ver', clave);
+      etiqueta.appendChild(c);
+      etiqueta.appendChild(document.createTextNode(' ' + W.NOMBRES_TARJETAS[clave]));
+      cont.appendChild(etiqueta);
+    });
+  }
+  panel.addEventListener('change', function (ev) {
+    var c = ev.target.closest('[data-tarjeta-ver]');
+    if (c && window.jimnyWidgets) window.jimnyWidgets.fijarTarjeta(c.getAttribute('data-tarjeta-ver'), c.checked);
+  });
+
+  casilla.addEventListener('change', function () { if (casilla.checked) { aviso(''); cargarFormulario(); pintarPantalla(); pintarTarjetas(); } });
   window.addEventListener('jimny-db', function () { if (casilla.checked) pintar(); });
 
-  window.jimnyAjustes = { pintar: pintar, cargar: cargarFormulario };
+  window.jimnyAjustes = { pintar: pintar, cargar: cargarFormulario, abrirTab: abrirTab };
 })();

@@ -9,6 +9,9 @@
    - combustible: precio por galón y consumo del carro
    - plan de viaje: distancia del tramo que se va a hacer
    - viajes: historial de viajes terminados
+   - destinos: lugares guardados (casa, trabajo...) y el elegido
+   - gasolineras favoritas, en orden de preferencia
+   - qué tarjetas del panel se esconden
 
    Ojo: si se borran los datos del navegador, se pierde. Por eso
    en Ajustes hay "Exportar respaldo" e "Importar respaldo".
@@ -28,9 +31,11 @@
       // Consumo: unos 12 km/l, lo que reportan dueños de Jimny 1.5 manual con parrilla y llantas AT (8,3 l/100 km);
       // el dato de fábrica ronda los 14 a 15 km/l.
       // Se guarda por galón; se muestra en la unidad elegida (litro por defecto: en Panamá se compra por litro)
-      combustible: { precioGalon: 4.84, tipo: '91', consumoKmL: 12, precioFecha: '2026-10-16', unidad: 'litro' },
+      combustible: { precioGalon: 4.84, tipo: '91', consumoKmL: 12, precioFecha: '2026-10-16', unidad: 'litro', favoritas: ['Puma', 'Texaco'] },
       plan: { km: 0, idaVuelta: true },
       viajes: [],
+      destinos: { lista: [], activo: null },
+      pantalla: { ocultas: [] },   // tarjetas del panel que no se quieren ver
     };
   }
 
@@ -153,6 +158,45 @@
     return { km: km, costo: costo, viajes: n };
   }
 
+  // ---------- Destinos ----------
+  function destinoActivo() {
+    var d = datos.destinos;
+    for (var i = 0; i < d.lista.length; i++) if (d.lista[i].id === d.activo) return d.lista[i];
+    return null;
+  }
+
+  function agregarDestino(nombre, lat, lon) {
+    nombre = String(nombre || '').trim().slice(0, 40);
+    if (!nombre || !(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) return null;
+    var dest = { id: 'd' + Date.now().toString(36) + Math.floor(Math.random() * 1000), nombre: nombre, lat: +(+lat).toFixed(6), lon: +(+lon).toFixed(6) };
+    // Mismo nombre: se reemplaza la ubicación
+    var lista = datos.destinos.lista, previo = -1;
+    for (var i = 0; i < lista.length; i++) if (lista[i].nombre.toLowerCase() === nombre.toLowerCase()) previo = i;
+    if (previo >= 0) { dest.id = lista[previo].id; lista[previo] = dest; } else lista.push(dest);
+    guardar();
+    return dest;
+  }
+
+  function borrarDestino(id) {
+    datos.destinos.lista = datos.destinos.lista.filter(function (x) { return x.id !== id; });
+    if (datos.destinos.activo === id) datos.destinos.activo = null;
+    guardar();
+  }
+
+  function activarDestino(id) {
+    datos.destinos.activo = id || null;
+    guardar();
+  }
+
+  // Al tocar la tarjeta: el siguiente de la lista y, después del último, ninguno
+  function siguienteDestino() {
+    var lista = datos.destinos.lista, actual = -1;
+    for (var i = 0; i < lista.length; i++) if (lista[i].id === datos.destinos.activo) actual = i;
+    var sig = actual + 1 < lista.length ? lista[actual + 1] : null;
+    activarDestino(sig ? sig.id : null);
+    return sig;
+  }
+
   // ---------- Respaldo ----------
   function exportar() {
     var respaldo = { app: 'jimny-animado', exportado: new Date().toISOString(), db: datos };
@@ -183,6 +227,8 @@
     costoPorKm: costoPorKm, costoDe: costoDe, galonesDe: galonesDe,
     unidad: unidad, precioEnUnidad: precioEnUnidad, fijarPrecio: fijarPrecio, cantidadDe: cantidadDe, GALON_L: GALON_L,
     guardarViaje: guardarViaje, resumenMes: resumenMes,
+    destinoActivo: destinoActivo, agregarDestino: agregarDestino, borrarDestino: borrarDestino,
+    activarDestino: activarDestino, siguienteDestino: siguienteDestino,
     exportar: exportar, importar: importar, borrarTodo: borrarTodo,
   };
 })();

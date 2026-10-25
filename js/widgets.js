@@ -11,6 +11,9 @@
    - Hora y la próxima salida o puesta del sol.
    - Clima: temperatura y cielo de Open-Meteo (gratis, sin
      clave). Necesita internet; si no hay, muestra el último.
+   - Lluvia en camino: en la misma consulta del clima viene el
+     pronóstico de lluvia cada 15 min (2 h) y la probabilidad
+     por hora (6 h). Dice si va a llover pronto o cuándo para.
    - Carro: odómetro y cuándo toca el mantenimiento (db.js).
    - El viaje muestra lo que va costando en gasolina (db.js).
 
@@ -230,6 +233,77 @@
     var texto = (CIELO[clima.codigo] || 'Cielo') + ', sensación ' + numero(clima.sensacion) + ' °C';
     if (hace > 30) texto += ' (hace ' + (hace < 120 ? hace + ' min' : Math.round(hace / 60) + ' h') + ')';
     poner('cielo', texto);
+    pintarLluvia();
+  }
+
+  // Convierte las columnas de Open-Meteo en filas [hora en ms, valor1, valor2...]
+  function serie(bloque, campos) {
+    if (!bloque || !bloque.time) return [];
+    return bloque.time.map(function (t, i) {
+      return [t * 1000].concat(campos.map(function (c) { var v = bloque[c] && bloque[c][i]; return typeof v === 'number' ? v : 0; }));
+    });
+  }
+
+  // ---------- Lluvia en camino ----------
+  var LLUEVE_MM = 0.1;           // mm en 15 min para contar como lluvia
+  var CODIGOS_LLUVIA = /^(5[1-7]|6[1-7]|8[0-2]|9[5-9])$/;
+
+  function minutosHasta(t, ref) { return Math.max(0, Math.round((t - ref) / 60000)); }
+  function redondear5(m) { return m <= 7 ? null : Math.round(m / 5) * 5; }
+
+  // Texto corto sobre la lluvia de las próximas horas; '' si no hay dato útil
+  function textoLluvia(c, ref) {
+    if (!c || !c.m15 || !c.horas || ref - c.cuando > 3 * 3600000) return '';
+    var m15 = c.m15.filter(function (f) { return f[0] + 15 * 60000 > ref; }).slice(0, 8);
+    var horas = c.horas.filter(function (f) { return f[0] + 3600000 > ref; }).slice(0, 6);
+    if (!m15.length && !horas.length) return '';
+    var lloviendo = CODIGOS_LLUVIA.test(String(c.codigo)) || (m15[0] && m15[0][1] >= LLUEVE_MM);
+    var i;
+    if (lloviendo) {
+      // Para cuando vienen dos ratos de 15 min seguidos sin lluvia
+      for (i = 1; i < m15.length; i++) {
+        if (m15[i][1] < LLUEVE_MM && (!m15[i + 1] || m15[i + 1][1] < LLUEVE_MM)) {
+          var mp = redondear5(minutosHasta(m15[i][0], ref));
+          return mp ? 'Para de llover en ~' + mp + ' min' : 'Ya casi para de llover';
+        }
+      }
+      return 'Lluvia por un buen rato';
+    }
+    for (i = 0; i < m15.length; i++) {
+      if (m15[i][1] >= LLUEVE_MM) {
+        var ml = redondear5(minutosHasta(m15[i][0], ref));
+        return ml ? 'Lluvia en ~' + ml + ' min' : 'Empieza a llover pronto';
+      }
+    }
+    var mayor = null;
+    for (i = 0; i < horas.length; i++) {
+      if (horas[i][1] >= 50 && horas[i][0] > ref) return 'Posible lluvia a las ' + horaCorta(new Date(horas[i][0])).replace(':00', '') + ' (' + Math.round(horas[i][1]) + ' %)';
+      if (!mayor || horas[i][1] > mayor[1]) mayor = horas[i];
+    }
+    if (mayor && mayor[1] >= 25) return 'Poca probabilidad de lluvia (' + Math.round(mayor[1]) + ' %)';
+    return 'Sin lluvia las próximas horas';
+  }
+
+  // Barritas con la probabilidad de lluvia de las próximas 6 horas
+  function pintarBarras(c, ref) {
+    var cont = $('barras');
+    if (!cont) return;
+    var horas = c && c.horas && ref - c.cuando <= 3 * 3600000 ? c.horas.filter(function (f) { return f[0] + 3600000 > ref; }).slice(0, 6) : [];
+    cont.hidden = !horas.length;
+    var html = horas.map(function (f) {
+      var p = Math.max(0, Math.min(100, f[1]));
+      return '<i style="height:' + Math.max(8, p) + '%" class="' + (p >= 50 ? 'alta' : p >= 25 ? 'media' : '') + '" title="' + horaCorta(new Date(f[0])) + ': ' + Math.round(p) + ' %"></i>';
+    }).join('');
+    if (cont.innerHTML !== html) cont.innerHTML = html;
+  }
+
+  function pintarLluvia() {
+    var ref = ahora().getTime();
+    var t = textoLluvia(clima, ref);
+    poner('lluvia', t);
+    var tarjeta = panel.querySelector('.w-clima');
+    if (tarjeta) tarjeta.classList.toggle('llueve-pronto', /^(Lluvia en|Empieza|Lluvia por|Para de)/.test(t));
+    pintarBarras(clima, ref);
   }
 
   function pedirClima() {
@@ -237,10 +311,13 @@
     var u = ubicacion();
     if (clima && Date.now() - clima.cuando < CLIMA_CADA_MS - 5000 && distancia(u, clima) < 10000) { pintarClima(); return; }
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + u.lat.toFixed(3) + '&longitude=' + u.lon.toFixed(3) +
-      '&current=temperature_2m,apparent_temperature,weather_code&timezone=auto';
+      '&current=temperature_2m,apparent_temperature,weather_code' +
+      '&minutely_15=precipitation&forecast_minutely_15=9' +
+      '&hourly=precipitation_probability,precipitation&forecast_hours=7&timeformat=unixtime&timezone=auto';
     fetch(url, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       if (!j || !j.current) return;
-      clima = { temp: j.current.temperature_2m, sensacion: j.current.apparent_temperature, codigo: j.current.weather_code, cuando: Date.now(), lat: u.lat, lon: u.lon };
+      clima = { temp: j.current.temperature_2m, sensacion: j.current.apparent_temperature, codigo: j.current.weather_code, cuando: Date.now(), lat: u.lat, lon: u.lon,
+        m15: serie(j.minutely_15, ['precipitation']), horas: serie(j.hourly, ['precipitation_probability', 'precipitation']) };
       guardar('jimny-clima', clima);
       pintarClima();
       // Aviso para cielo.js: el cielo de la animación cambia según este dato
@@ -248,15 +325,54 @@
     }).catch(function () { pintarClima(); });
   }
 
+  // ---------- Tarjetas que se ven (Ajustes > Pantalla) ----------
+  var NOMBRES_TARJETAS = { vel: 'Velocidad', viaje: 'Viaje', rumbo: 'Rumbo', hora: 'Hora', clima: 'Clima', carro: 'Carro', gas: 'Gasolinera', destino: 'Destino' };
+
+  function ocultas() {
+    var db = window.jimnyDB;
+    var o = db && db.datos().pantalla && db.datos().pantalla.ocultas;
+    return Array.isArray(o) ? o : [];
+  }
+
+  function aplicarTarjetas() {
+    var o = ocultas(), visibles = 0;
+    panel.querySelectorAll('[data-tarjeta]').forEach(function (t) {
+      var esconder = o.indexOf(t.getAttribute('data-tarjeta')) >= 0;
+      t.classList.toggle('oculta', esconder);
+      if (!esconder) visibles++;
+    });
+    panel.classList.toggle('vacio', visibles === 0);
+  }
+
+  function tarjetaVisible(clave) { return ocultas().indexOf(clave) < 0; }
+
+  function fijarTarjeta(clave, ver) {
+    var db = window.jimnyDB;
+    if (!db) return;
+    var o = ocultas().filter(function (x) { return x !== clave; });
+    if (!ver) o.push(clave);
+    db.datos().pantalla.ocultas = o;
+    db.guardar(); // avisa con "jimny-db" y se vuelve a aplicar
+  }
+  window.addEventListener('jimny-db', aplicarTarjetas);
+  aplicarTarjetas();
+
   // ---------- Arranque ----------
   pintarGPS();
   pintarHora();
   pintarClima();
   setInterval(pintarHora, 1000);
+  setInterval(pintarLluvia, 60000);  // los minutos que faltan para la lluvia
   setInterval(pintarGPS, 5000);       // para que el tiempo y el aviso de "sin GPS" se refresquen
   setTimeout(pedirClima, 2000);
   setInterval(pedirClima, CLIMA_CADA_MS);
   window.addEventListener('online', pedirClima);
 
-  window.jimnyWidgets = { viaje: function () { return viaje; }, pintar: pintarGPS, gps: gps, pedirClima: pedirClima, calcularSol: calcularSol };
+  window.jimnyWidgets = {
+    viaje: function () { return viaje; }, pintar: pintarGPS, gps: gps, pedirClima: pedirClima, calcularSol: calcularSol,
+    textoLluvia: textoLluvia, pintarLluvia: pintarLluvia,
+    NOMBRES_TARJETAS: NOMBRES_TARJETAS, tarjetaVisible: tarjetaVisible, fijarTarjeta: fijarTarjeta,
+    // Herramientas para gasolineras.js y destinos.js
+    distancia: distancia, rumboEntre: rumboEntre, ubicacion: ubicacion, numero: numero, horaCorta: horaCorta, ahora: ahora,
+  };
 })();
