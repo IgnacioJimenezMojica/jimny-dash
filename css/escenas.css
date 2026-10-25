@@ -1,0 +1,40 @@
+/* =========================================================
+   escenas.css: cielo, dibujos y velocidades de cada escena
+   Velocidades: el suelo es la referencia. Las demás capas van
+   más lentas mientras más lejos están (parallax).
+   La rueda del carro se ajusta en carro.css para que gire
+   a la misma velocidad con la que pasa el suelo.
+   El cielo de día de cada escena es una capa compartida (.ce-*)
+   debajo de las escenas, para poder poner el sol y las nubes
+   del clima entre el cielo y el paisaje (ver clima.css).
+   ========================================================= */
+
+.nubes { background-image: url("../svg/nubes.svg"); }
+
+/* ---------- Carretera: la más rápida ---------- */
+.ce-carretera { background: linear-gradient(#5fb3e6 0%, #9fd6f3 45%, #d6f0fc 70%); }
+.escena-carretera .lejos { background-image: url("../svg/carretera-lejos.svg"); --t: 54s; }
+.escena-carretera .medio { background-image: url("../svg/carretera-medio.svg"); --t: 7.5s; }
+.escena-carretera .suelo { background-image: url("../svg/carretera-suelo.svg"); --t: 1.4s; }
+.escena-carretera .nubes { --t: 120s; }
+
+/* ---------- Tierra: tarde cálida ---------- */
+.ce-tierra { background: linear-gradient(#7fbfe0 0%, #c6dfe0 40%, #f5dfb3 70%); }
+.escena-tierra .lejos { background-image: url("../svg/tierra-lejos.svg"); --t: 100s; }
+.escena-tierra .medio { background-image: url("../svg/tierra-medio.svg"); --t: 13.9s; }
+.escena-tierra .suelo { background-image: url("../svg/tierra-suelo.svg"); --t: 2.6s; }
+.escena-tierra .nubes { --t: 180s; opacity: 0.75; }
+
+/* ---------- Montaña: la más lenta ---------- */
+.ce-montana { background: linear-gradient(#5d9bd0 0%, #a9cbea 45%, #e3f0fa 72%); }
+.escena-montana .lejos { background-image: url("../svg/montana-lejos.svg"); --t: 138s; }
+.escena-montana .medio { background-image: url("../svg/montana-medio.svg"); --t: 19.2s; }
+.escena-montana .suelo { background-image: url("../svg/montana-suelo.svg"); --t: 3.6s; }
+.escena-montana .nubes { --t: 220s; }
+
+/* ---------- Alrededores: pueblo y campo ---------- */
+.ce-alrededores { background: linear-gradient(#4fb0e8 0%, #8fd0f2 45%, #c9ecfc 70%); }
+.escena-alrededores .lejos { background-image: url("../svg/alrededores-lejos.svg"); --t: 84s; }
+.escena-alrededores .medio { background-image: url("../svg/alrededores-medio.svg"); --t: 11.7s; }
+.escena-alrededores .suelo { background-image: url("../svg/alrededores-suelo.svg"); --t: 2.2s; }
+.escena-alrededores .nubes { --t: 160s; }

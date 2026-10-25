@@ -1,0 +1,145 @@
+/* =========================================================
+   carro.css: posición, ruedas, rebote y polvo
+   ========================================================= */
+
+.carro {
+  /* Color de la carrocería: cambiar aquí para otro color */
+  --color-carro: #627058; /* verde oliva, como el Jimny real */
+
+  --alto-carro: 34vh;
+  --ancho-carro: calc(var(--alto-carro) * 520 / 215);
+
+  /* Duración de una vuelta de rueda (la de carretera por defecto) */
+  --t-rueda: 0.52s;
+
+  position: absolute;
+  height: var(--alto-carro);
+  width: var(--ancho-carro);
+  /* La carrocería queda un poco a la izquierda del centro para dejar camino adelante */
+  left: calc(46vw - var(--ancho-carro) * 0.59);
+  /* El suelo de cada escena pisa al 60 % del alto de la capa de suelo (y=40 de 100).
+     En el dibujo del carro el suelo está en y=200 de 215. */
+  bottom: calc(var(--alto-suelo) * 0.6 - var(--alto-carro) * 15 / 215);
+}
+
+.carro svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pintura {
+  fill: var(--color-carro);
+}
+
+/* ---------- Ruedas ----------
+   Vuelta de rueda = circunferencia / velocidad del suelo.
+   Diámetro de rueda = 72/215 del alto del carro; mosaico de suelo = 4 x alto del suelo. */
+.rueda {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: girar calc(var(--t-rueda) * var(--factor)) linear infinite;
+  will-change: transform;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+#esc-carretera:checked ~ .escenario .carro   { --t-rueda: 0.52s; }
+#esc-alrededores:checked ~ .escenario .carro { --t-rueda: 0.82s; }
+#esc-tierra:checked ~ .escenario .carro      { --t-rueda: 0.97s; }
+#esc-montana:checked ~ .escenario .carro     { --t-rueda: 1.34s; }
+
+/* ---------- Rebote de la carrocería ----------
+   Las unidades px dentro del SVG son unidades del dibujo (215 = alto del carro). */
+.carroceria {
+  /* Gira y rebota desde la base del carro (centro de la carrocería, a la altura del
+     parachoques), en unidades del dibujo. Se usa view-box y no fill-box porque el haz
+     del faro agranda la caja del grupo y movería el punto de giro. */
+  transform-box: view-box;
+  transform-origin: 197px 173px;
+  will-change: transform;
+  animation: rebote-suave calc(0.9s * var(--factor)) ease-in-out infinite;
+}
+
+#esc-tierra:checked ~ .escenario .carroceria {
+  animation-name: rebote-tierra;
+  animation-duration: calc(1.3s * var(--factor));
+}
+
+#esc-montana:checked ~ .escenario .carroceria {
+  animation-name: rebote-montana;
+  animation-duration: calc(1.8s * var(--factor));
+}
+
+@keyframes rebote-suave {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1.5px); }
+}
+
+@keyframes rebote-tierra {
+  0%, 100% { transform: translateY(0); }
+  18%      { transform: translateY(-4px); }
+  34%      { transform: translateY(0); }
+  55%      { transform: translateY(-2.5px); }
+  70%      { transform: translateY(0.5px); }
+  85%      { transform: translateY(-1.5px); }
+}
+
+/* En montaña además se inclina un poco, como si pasara por piedras */
+@keyframes rebote-montana {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  15%      { transform: translateY(-6px) rotate(-0.8deg); }
+  30%      { transform: translateY(-1px) rotate(0.3deg); }
+  48%      { transform: translateY(-4px) rotate(0.9deg); }
+  65%      { transform: translateY(0) rotate(0deg); }
+  82%      { transform: translateY(-3px) rotate(-0.5deg); }
+}
+
+/* ---------- Polvo (solo en tierra) ---------- */
+.polvo {
+  fill: #cfa572;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+#esc-tierra:checked ~ .escenario .polvo {
+  opacity: 1;
+}
+
+/* Con el GPS encendido y el carro detenido no sale polvo */
+.detenido #esc-tierra:checked ~ .escenario .polvo {
+  opacity: 0;
+}
+
+.polvo circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: polvo calc(1.4s * var(--factor)) ease-out infinite;
+  opacity: 0;
+}
+
+.polvo circle:nth-child(2) { animation-delay: calc(-0.28s * var(--factor)); }
+.polvo circle:nth-child(3) { animation-delay: calc(-0.56s * var(--factor)); }
+.polvo circle:nth-child(4) { animation-delay: calc(-0.84s * var(--factor)); }
+.polvo circle:nth-child(5) { animation-delay: calc(-1.12s * var(--factor)); }
+
+@keyframes polvo {
+  0%   { transform: translate(0, 0) scale(0.5); opacity: 0.9; }
+  100% { transform: translate(-95px, -28px) scale(2); opacity: 0; }
+}
+
+/* ---------- Noche: pintura más oscura y luces encendidas ----------
+   Las reglas que las activan están en base.css (sección Luz). */
+.tinte {
+  fill: #0a1228;
+  opacity: 0;
+  transition: opacity 2s ease;
+}
+
+.luces {
+  opacity: 0;
+  transition: opacity 2s ease;
+}

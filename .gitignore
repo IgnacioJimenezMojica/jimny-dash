@@ -1,0 +1,29 @@
+# Solo se sube el código que hace correr la app:
+# index.html, css/, js/, svg/, web/ y construir.py
+
+# Archivos generados (se crean con: python construir.py)
+dist/
+
+# Notas de Obsidian y capturas (se quedan solo en la PC)
+contexto/
+.obsidian/
+
+# Imágenes que Claude dejó en la carpeta
+Claude outputs/
+
+# Pruebas y herramientas de desarrollo
+pruebas/
+herramientas/
+node_modules/
+package-lock.json
+
+# Basura del sistema y editores
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.log
+*.tmp

@@ -1,0 +1,184 @@
+/* =========================================================
+   clima.css: el cielo según el clima real (js/cielo.js)
+
+   js/cielo.js pone en <html> una de estas clases:
+     clima-despejado, clima-parcial, clima-nublado,
+     clima-lluvia, clima-tormenta
+   y además lluvia-debil o lluvia-fuerte, sol-visible y sol-bajo.
+   Todo cambia con fundidos suaves y solo se anima transform
+   y opacity.
+   ========================================================= */
+
+/* ---------- Sol ---------- */
+.sol {
+  position: absolute;
+  left: var(--sol-x, 72%);
+  top: var(--sol-y, 34vh);
+  width: 17vh;
+  height: 17vh;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2s ease, left 60s linear, top 60s linear;
+}
+
+.sol svg { width: 100%; height: 100%; display: block; }
+.sol-disco { fill: #fff6cc; transition: fill 2s ease; }
+.sol-bajo .sol-disco { fill: #ffbb6b; }
+.sol-visible .sol { opacity: 1; }
+.sol-visible.clima-parcial .sol { opacity: 0.85; }
+
+/* ---------- Cielo gris ---------- */
+.cielo-gris {
+  background: linear-gradient(#9aa5b1 0%, #b9c2cb 45%, #d3d9df 72%);
+  opacity: 0;
+  transition: opacity 2s ease, background-color 2s ease;
+}
+
+.clima-parcial .cielo-gris  { opacity: 0.22; }
+.clima-nublado .cielo-gris  { opacity: 0.82; }
+.clima-lluvia .cielo-gris   { opacity: 0.94; background: linear-gradient(#7a8592 0%, #98a2ad 45%, #b5bdc5 72%); }
+.clima-tormenta .cielo-gris { opacity: 1;    background: linear-gradient(#4e5866 0%, #6b7582 45%, #8a939d 72%); }
+
+/* De noche el cielo gris es casi negro: tapa estrellas y luna sin iluminar */
+#luz-noche:checked ~ .escenario .cielo-gris,
+.luz-noche #luz-auto:checked ~ .escenario .cielo-gris {
+  background: linear-gradient(#141a26 0%, #1f2736 60%, #2a3344 100%);
+}
+
+/* ---------- Nubes densas (detrás del paisaje) ---------- */
+.clima-nubes {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 2s ease;
+}
+
+.nubes-densas {
+  --alto: 36vh; --prop: 5.3333; --copias: 3;
+  top: 2vh;
+  background-image: url("../svg/nubes-densas.svg");
+  --t: 150s;
+  animation-name: avanzar-3;
+}
+
+.clima-parcial .clima-nubes  { opacity: 0.45; }
+.clima-nublado .clima-nubes  { opacity: 1; }
+.clima-lluvia .clima-nubes,
+.clima-tormenta .clima-nubes { opacity: 1; }
+
+#luz-noche:checked ~ .escenario .clima-nubes,
+.luz-noche #luz-auto:checked ~ .escenario .clima-nubes { filter: brightness(0.35); }
+.luz-crepusculo #luz-auto:checked ~ .escenario .clima-nubes { filter: brightness(0.75); }
+
+/* Las nubes blancas de cada escena se apagan cuando el cielo está gris */
+.clima-nublado .escena .nubes,
+.clima-lluvia .escena .nubes,
+.clima-tormenta .escena .nubes { opacity: 0.3; }
+
+/* Luna: con nubes no se ve (quedaba como un disco gris opaco detrás del cielo gris);
+   con parcialmente nublado se ve, un poco tapada */
+#luna, #luna-halo { transition: opacity 2s ease; }
+.clima-nublado #luna, .clima-nublado #luna-halo,
+.clima-lluvia #luna, .clima-lluvia #luna-halo,
+.clima-tormenta #luna, .clima-tormenta #luna-halo { opacity: 0 !important; }
+.clima-parcial #luna { opacity: 0.8; }
+
+/* Con nubes, las estrellas casi no se ven */
+.clima-nublado .titilar,
+.clima-lluvia .titilar,
+.clima-tormenta .titilar { visibility: hidden; }
+
+/* ---------- Velo gris sobre el paisaje (lluvia, tormenta) ---------- */
+.velo-lluvia {
+  position: absolute;
+  inset: 0;
+  background: rgba(45, 55, 68, 1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2s ease;
+}
+
+.clima-nublado .velo-lluvia  { opacity: 0.1; }
+.clima-lluvia .velo-lluvia   { opacity: 0.22; }
+.clima-tormenta .velo-lluvia { opacity: 0.32; }
+
+/* ---------- Lluvia ---------- */
+.lluvia {
+  position: absolute;
+  inset: -20%;
+  transform: rotate(12deg);   /* un poco inclinada, como con viento */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2s ease;
+}
+
+.gotas {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  background-repeat: repeat;
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* Cada capa baja exactamente un mosaico por ciclo: el bucle no se nota */
+.gotas-lejos {
+  top: -300px;
+  height: calc(100% + 300px);
+  background-image: url("../svg/lluvia-lejos.svg");
+  background-size: 300px 300px;
+  animation-name: caer-lejos;
+  animation-duration: 0.85s;
+}
+
+.gotas-cerca {
+  top: -400px;
+  height: calc(100% + 400px);
+  background-image: url("../svg/lluvia-cerca.svg");
+  background-size: 400px 400px;
+  animation-name: caer-cerca;
+  animation-duration: 0.5s;
+  opacity: 0;
+}
+
+@keyframes caer-lejos { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 300px, 0); } }
+@keyframes caer-cerca { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 400px, 0); } }
+
+.clima-lluvia .lluvia,
+.clima-tormenta .lluvia { opacity: 0.85; }
+.clima-lluvia.lluvia-debil .lluvia { opacity: 0.6; }
+.clima-lluvia:not(.lluvia-debil) .gotas-cerca,
+.clima-tormenta .gotas-cerca { opacity: 1; }
+.clima-tormenta .lluvia,
+.lluvia-fuerte .lluvia { opacity: 1; }
+
+/* Sin lluvia, la animación de las gotas se detiene (no gasta) */
+html:not(.clima-lluvia):not(.clima-tormenta) .gotas { animation-play-state: paused; }
+
+/* ---------- Relámpago (solo en tormenta, suave y espaciado) ---------- */
+.relampago {
+  position: absolute;
+  inset: 0;
+  background: #e9eeff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.clima-tormenta .relampago { animation: relampago 11s linear infinite; }
+
+@keyframes relampago {
+  0%, 70%, 100% { opacity: 0; }
+  71%           { opacity: 0.2; }
+  72%           { opacity: 0; }
+  74%           { opacity: 0.12; }
+  75.5%         { opacity: 0; }
+}
+
+/* Movimiento reducido: sin relámpagos y lluvia más lenta */
+@media (prefers-reduced-motion: reduce) {
+  .clima-tormenta .relampago { animation: none; }
+  .gotas-lejos { animation-duration: 2.5s; }
+  .gotas-cerca { animation-duration: 1.6s; }
+}

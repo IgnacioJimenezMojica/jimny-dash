@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5fb3e6">
+<title>Jimny animado</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/escenas.css">
+<link rel="stylesheet" href="css/carro.css">
+<link rel="stylesheet" href="css/clima.css">
+</head>
+<body>
+
+<!-- Estado de la página: controles ocultos que cambian todo con CSS, sin JavaScript.
+     Deben ir antes de .escenario y .controles, en el mismo nivel, para que funcione el selector "~". -->
+<input class="estado" type="radio" name="escena" id="esc-carretera" checked>
+<input class="estado" type="radio" name="escena" id="esc-tierra">
+<input class="estado" type="radio" name="escena" id="esc-montana">
+<input class="estado" type="radio" name="escena" id="esc-alrededores">
+<input class="estado" type="checkbox" id="pausa">
+<input class="estado" type="checkbox" id="ocultar">
+<input class="estado" type="checkbox" id="gps">
+<!-- Luz: sin JavaScript arranca de día y se cambia a mano. Con JavaScript arranca en automático (por la hora). -->
+<input class="estado" type="radio" name="luz" id="luz-auto">
+<input class="estado" type="radio" name="luz" id="luz-dia" checked>
+<input class="estado" type="radio" name="luz" id="luz-noche">
+<input class="estado" type="checkbox" id="datos">
+<input class="estado" type="checkbox" id="escena-auto">
+<input class="estado" type="checkbox" id="ajustes">
+
+<main class="escenario">
+
+  <!-- Cielos compartidos: quedan debajo de las escenas y se ven cuando el cielo de día se apaga -->
+  <div class="cielo cielo-noche">
+    <svg viewBox="0 0 1600 500" preserveAspectRatio="xMidYMin slice" aria-hidden="true">
+      <defs>
+        <radialGradient id="halo-luna"><stop offset="0" stop-color="#fff8dc" stop-opacity="0.35"/><stop offset="1" stop-color="#fff8dc" stop-opacity="0"/></radialGradient>
+      </defs>
+      <circle id="luna-halo" cx="1380" cy="300" r="80" fill="url(#halo-luna)"/>
+      <!-- Luna con su fase real (js/luna.js dibuja la parte iluminada y la gira) -->
+      <g id="luna" transform="translate(1380 300)">
+        <circle id="luna-sombra" r="30" fill="#2c3a63" opacity="0.18"/>
+        <path id="luna-luz" d="M0,-30 A30,30 0 0 1 0,30 A12,30 0 0 0 0,-30 Z" fill="#fffbe8"/>
+      </g>
+      <g fill="#ffffff">
+          <g class="titilar t0"><circle cx="522" cy="57" r="0.8"/><circle cx="120" cy="37" r="2.2"/><circle cx="84" cy="284" r="1"/><circle cx="164" cy="237" r="1.4"/><circle cx="1265" cy="233" r="1.4"/><circle cx="271" cy="154" r="1.2"/><circle cx="949" cy="195" r="2.2"/><circle cx="214" cy="88" r="2.2"/><circle cx="1126" cy="326" r="1.2"/><circle cx="425" cy="9" r="1"/><circle cx="731" cy="375" r="1.8"/><circle cx="1566" cy="150" r="1.4"/><circle cx="980" cy="56" r="1"/><circle cx="238" cy="249" r="1.2"/><circle cx="828" cy="122" r="0.8"/><circle cx="1571" cy="316" r="1"/><circle cx="1447" cy="119" r="2.2"/><circle cx="535" cy="346" r="1.2"/><circle cx="1036" cy="231" r="1.2"/><circle cx="525" cy="238" r="0.8"/><circle cx="217" cy="57" r="2.2"/><circle cx="889" cy="113" r="1.4"/><circle cx="724" cy="22" r="0.8"/><circle cx="765" cy="311" r="1"/><circle cx="1070" cy="146" r="1"/><circle cx="1539" cy="102" r="1.2"/></g>
+          <g class="titilar t1"><circle cx="903" cy="313" r="1.4"/><circle cx="864" cy="192" r="1.8"/><circle cx="335" cy="227" r="1"/><circle cx="484" cy="167" r="1.2"/><circle cx="72" cy="290" r="1.4"/><circle cx="158" cy="95" r="0.8"/><circle cx="1066" cy="15" r="1"/><circle cx="794" cy="62" r="1"/><circle cx="1523" cy="57" r="1"/><circle cx="974" cy="111" r="2.2"/><circle cx="93" cy="8" r="0.8"/><circle cx="962" cy="161" r="1.2"/><circle cx="1292" cy="423" r="2.2"/><circle cx="171" cy="159" r="1.2"/><circle cx="1054" cy="391" r="2.2"/><circle cx="742" cy="247" r="1"/><circle cx="1559" cy="220" r="1.4"/><circle cx="1569" cy="92" r="0.8"/><circle cx="1448" cy="122" r="1.4"/><circle cx="705" cy="67" r="2.2"/><circle cx="772" cy="335" r="0.8"/><circle cx="710" cy="205" r="1.4"/><circle cx="1468" cy="295" r="1.2"/><circle cx="1249" cy="297" r="1.8"/></g>
+          <g class="titilar t2"><circle cx="1447" cy="77" r="1.2"/><circle cx="1507" cy="194" r="1"/><circle cx="296" cy="195" r="1"/><circle cx="746" cy="305" r="1"/><circle cx="465" cy="324" r="1.2"/><circle cx="1257" cy="272" r="1"/><circle cx="106" cy="234" r="1.8"/><circle cx="975" cy="167" r="1"/><circle cx="1050" cy="15" r="1"/><circle cx="824" cy="207" r="0.8"/><circle cx="174" cy="212" r="0.8"/><circle cx="1509" cy="206" r="1"/><circle cx="1579" cy="158" r="0.8"/><circle cx="1513" cy="178" r="1.4"/><circle cx="1445" cy="123" r="1.4"/><circle cx="388" cy="178" r="1"/><circle cx="966" cy="155" r="1.8"/><circle cx="996" cy="387" r="1.2"/><circle cx="325" cy="294" r="1.8"/><circle cx="279" cy="49" r="1.2"/><circle cx="876" cy="19" r="1.8"/><circle cx="408" cy="102" r="1.4"/><circle cx="1298" cy="227" r="1.4"/><circle cx="247" cy="54" r="0.8"/><circle cx="403" cy="126" r="1.4"/><circle cx="325" cy="97" r="2.2"/><circle cx="227" cy="47" r="0.8"/><circle cx="1027" cy="126" r="1"/><circle cx="363" cy="306" r="1.2"/></g>
+      </g>
+    </svg>
+  </div>
+  <div class="cielo cielo-dia"></div>
+  <!-- Cielo de día de cada escena (se funden al cambiar de escena) -->
+  <div class="cielo cielo-escena ce-carretera"></div>
+  <div class="cielo cielo-escena ce-tierra"></div>
+  <div class="cielo cielo-escena ce-montana"></div>
+  <div class="cielo cielo-escena ce-alrededores"></div>
+  <div class="cielo cielo-crepusculo"></div>
+
+  <!-- Clima (js/cielo.js): cielo gris, sol que sigue la altura real del sol y nubes densas -->
+  <div class="cielo cielo-gris"></div>
+  <div class="sol" aria-hidden="true">
+    <svg viewBox="-60 -60 120 120">
+      <defs><radialGradient id="halo-sol"><stop offset="0.3" stop-color="#fff3c0" stop-opacity="0.7"/><stop offset="1" stop-color="#fff3c0" stop-opacity="0"/></radialGradient></defs>
+      <circle r="60" fill="url(#halo-sol)"/>
+      <circle class="sol-disco" r="21"/>
+    </svg>
+  </div>
+  <div class="clima-nubes"><div class="capa nubes-densas"></div></div>
+
+
+  <div class="escena escena-carretera">
+    <div class="capa nubes"></div>
+    <div class="capa lejos"></div>
+    <div class="capa medio"></div>
+    <div class="capa suelo"></div>
+  </div>
+
+  <div class="escena escena-tierra">
+    <div class="capa nubes"></div>
+    <div class="capa lejos"></div>
+    <div class="capa medio"></div>
+    <div class="capa suelo"></div>
+  </div>
+
+  <div class="escena escena-montana">
+    <div class="capa nubes"></div>
+    <div class="capa lejos"></div>
+    <div class="capa medio"></div>
+    <div class="capa suelo"></div>
+  </div>
+
+  <div class="escena escena-alrededores">
+    <div class="capa nubes"></div>
+    <div class="capa lejos"></div>
+    <div class="capa medio"></div>
+    <div class="capa suelo"></div>
+  </div>
+
+  <!-- Velo gris cuando llueve o está muy nublado -->
+  <div class="velo-lluvia"></div>
+
+  <!-- Velo que oscurece el paisaje de noche y lo entibia al atardecer (el cielo de arriba casi no se toca) -->
+  <div class="velo"></div>
+
+  <!-- El carro: vista lateral de un 4x4 compacto de tres puertas, dibujo propio, sin logos.
+       El suelo de todas las escenas queda en y=200 de este dibujo. -->
+  <div class="carro">
+    <svg viewBox="-110 0 520 215" role="img" aria-label="Carro 4x4 de tres puertas andando">
+      <!-- Sombra (no rebota) -->
+      <ellipse cx="200" cy="201" rx="185" ry="6" fill="#000" opacity="0.22"/>
+
+      <!-- Polvo detrás de la rueda trasera (solo visible en la escena de tierra) -->
+      <g class="polvo">
+        <circle cx="40" cy="190" r="12"/>
+        <circle cx="40" cy="190" r="12"/>
+        <circle cx="40" cy="190" r="12"/>
+        <circle cx="40" cy="190" r="12"/>
+        <circle cx="40" cy="190" r="12"/>
+      </g>
+
+      <!-- Ruedas: cada una gira sobre su propio centro -->
+      <g class="rueda">
+        <circle cx="88" cy="164" r="36" fill="#1c1d1f"/>
+        <circle cx="88" cy="164" r="33.5" fill="none" stroke="#2f3135" stroke-width="4" stroke-dasharray="5 6"/>
+        <circle cx="88" cy="164" r="22" fill="#7d8287"/>
+        <circle cx="88" cy="151" r="4.5" fill="#2e3136"/>
+        <circle cx="100.4" cy="160" r="4.5" fill="#2e3136"/>
+        <circle cx="95.6" cy="174.5" r="4.5" fill="#2e3136"/>
+        <circle cx="80.4" cy="174.5" r="4.5" fill="#2e3136"/>
+        <circle cx="75.6" cy="160" r="4.5" fill="#2e3136"/>
+        <circle cx="88" cy="164" r="6" fill="#4a4e53"/>
+        <circle class="tinte" cx="88" cy="164" r="36"/>
+      </g>
+      <g class="rueda">
+        <circle cx="319" cy="164" r="36" fill="#1c1d1f"/>
+        <circle cx="319" cy="164" r="33.5" fill="none" stroke="#2f3135" stroke-width="4" stroke-dasharray="5 6"/>
+        <circle cx="319" cy="164" r="22" fill="#7d8287"/>
+        <circle cx="319" cy="151" r="4.5" fill="#2e3136"/>
+        <circle cx="331.4" cy="160" r="4.5" fill="#2e3136"/>
+        <circle cx="326.6" cy="174.5" r="4.5" fill="#2e3136"/>
+        <circle cx="311.4" cy="174.5" r="4.5" fill="#2e3136"/>
+        <circle cx="306.6" cy="160" r="4.5" fill="#2e3136"/>
+        <circle cx="319" cy="164" r="6" fill="#4a4e53"/>
+        <circle class="tinte" cx="319" cy="164" r="36"/>
+      </g>
+
+      <!-- Carrocería: todo lo que rebota. Basado en el Jimny de Nacho: verde oliva, canasta en el techo, vidrios oscuros -->
+      <g class="carroceria">
+        <!-- Llanta de repuesto en la puerta trasera -->
+        <rect x="4" y="74" width="22" height="74" rx="9" fill="#1f2022"/>
+        <rect x="10" y="90" width="9" height="42" rx="3" fill="#6d7277"/>
+        <rect x="22" y="104" width="6" height="14" fill="#2a2b2e"/>
+
+        <!-- Cuerpo con los huecos de las ruedas -->
+        <path class="pintura" d="M24,48 Q24,30 40,30 L258,30 L286,86 L372,92 Q383,93 383,103 L383,170 L363,170
+                 A44,44 0 1 0 275,170 L132,170 A44,44 0 1 0 44,170 L24,170 Z"/>
+        <!-- Canaleta del techo -->
+        <path d="M26,33 L258,33" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>
+        <!-- Canasta portaequipaje negra -->
+        <g class="canasta" fill="#1a1b1d">
+          <rect x="44" y="27" width="8" height="5" rx="1"/>
+          <rect x="146" y="27" width="8" height="5" rx="1"/>
+          <rect x="238" y="27" width="8" height="5" rx="1"/>
+          <rect x="34" y="23" width="226" height="4" rx="2"/>
+          <rect x="34" y="12" width="226" height="3" rx="1.5"/>
+          <path d="M34,12 Q28,12 28,18 L28,22 Q28,27 34,27 L36,27 L36,12 Z"/>
+          <path d="M260,12 Q266,12 266,18 L266,22 Q266,27 260,27 L258,27 L258,12 Z"/>
+          <rect x="58" y="13" width="2.5" height="11"/>
+          <rect x="82" y="13" width="2.5" height="11"/>
+          <rect x="106" y="13" width="2.5" height="11"/>
+          <rect x="130" y="13" width="2.5" height="11"/>
+          <rect x="154" y="13" width="2.5" height="11"/>
+          <rect x="178" y="13" width="2.5" height="11"/>
+          <rect x="202" y="13" width="2.5" height="11"/>
+          <rect x="226" y="13" width="2.5" height="11"/>
+        </g>
+        <!-- Ventanas -->
+        <rect x="36" y="45" width="80" height="39" rx="5" fill="#14181b"/>
+        <path d="M131,45 L250,45 L270,84 L131,84 Z" fill="#14181b"/>
+        <!-- Deflector de lluvia sobre la ventana -->
+        <path d="M129,41 L252,41 L258,46 L129,46 Z" fill="#0d0f10" opacity="0.85"/>
+        <path d="M44,49 L70,49 L52,80 L44,80 Z" fill="#ffffff" opacity="0.07"/>
+        <path d="M140,49 L175,49 L155,80 L140,80 Z" fill="#ffffff" opacity="0.07"/>
+        <!-- Pilar del parabrisas -->
+        <path d="M261,35 L286,86" stroke="#1d1f21" stroke-width="5" stroke-linecap="round"/>
+        <!-- Línea de cintura y pliegue lateral -->
+        <path d="M26,88 L284,88" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>
+        <path d="M26,118 L381,118" stroke="#fff" stroke-opacity="0.25" stroke-width="2"/>
+        <!-- Contorno de la puerta y manija -->
+        <path d="M124,40 L124,168 M280,86 L280,124" stroke="#000" stroke-opacity="0.3" stroke-width="2" fill="none"/>
+        <rect x="134" y="96" width="22" height="5" rx="2" fill="#2a2b2e"/>
+        <!-- Tapa de combustible -->
+        <rect x="96" y="96" width="18" height="20" rx="3" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>
+        <!-- Espejo -->
+        <path d="M268,76 L284,73 L287,85 L271,88 Z" fill="#1d1f21"/>
+        <!-- Estribo y guardafangos negros -->
+        <rect x="130" y="160" width="147" height="12" rx="3" fill="#1d1f21"/>
+        <path d="M41.7,172 A47,47 0 1 1 134.3,172" stroke="#1d1f21" stroke-width="9" fill="none"/>
+        <path d="M272.7,172 A47,47 0 1 1 365.3,172" stroke="#1d1f21" stroke-width="9" fill="none"/>
+        <!-- Parachoques, faro redondo, direccional y luz trasera -->
+        <rect x="366" y="142" width="24" height="30" rx="4" fill="#1d1f21"/>
+        <rect x="16" y="146" width="30" height="27" rx="4" fill="#1d1f21"/>
+        <rect x="18" y="150" width="6" height="13" rx="1" fill="#d83a2e"/>
+        <ellipse cx="382" cy="112" rx="5" ry="9" fill="#f5f3e6" stroke="#3a3c40" stroke-width="2"/>
+        <rect x="375" y="127" width="9" height="6" rx="1" fill="#f0a020"/>
+        <rect x="332" y="110" width="10" height="5" rx="1.5" fill="#f0a020"/>
+
+        <!-- De noche: la pintura se oscurece y se encienden las luces -->
+        <path class="tinte" d="M24,48 Q24,30 40,30 L258,30 L286,86 L372,92 Q383,93 383,103 L383,170 L363,170
+                 A44,44 0 1 0 275,170 L132,170 A44,44 0 1 0 44,170 L24,170 Z"/>
+        <g class="luces">
+          <defs>
+            <linearGradient id="haz" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stop-color="#fff3c4" stop-opacity="0.55"/>
+              <stop offset="0.75" stop-color="#fff3c4" stop-opacity="0.16"/>
+              <stop offset="1" stop-color="#fff3c4" stop-opacity="0"/>
+            </linearGradient>
+            <radialGradient id="charco-luz"><stop offset="0" stop-color="#fff3c4" stop-opacity="0.38"/><stop offset="1" stop-color="#fff3c4" stop-opacity="0"/></radialGradient>
+            <radialGradient id="halo-faro"><stop offset="0" stop-color="#fff6cf" stop-opacity="0.9"/><stop offset="1" stop-color="#fff6cf" stop-opacity="0"/></radialGradient>
+            <radialGradient id="halo-rojo"><stop offset="0" stop-color="#ff4a3a" stop-opacity="0.8"/><stop offset="1" stop-color="#ff4a3a" stop-opacity="0"/></radialGradient>
+          </defs>
+          <!-- Haz: el borde de abajo toca la calle (y=200) cerca de x=590 y sigue pegado al piso -->
+          <path d="M385,106 L670,134 L670,201 L590,201 L385,119 Z" fill="url(#haz)"/>
+          <!-- Reflejo en la calle, donde cae el haz -->
+          <ellipse cx="625" cy="201" rx="62" ry="7" fill="url(#charco-luz)"/>
+          <circle cx="384" cy="112" r="20" fill="url(#halo-faro)"/>
+          <ellipse cx="382" cy="112" rx="5" ry="9" fill="#fffbe6"/>
+          <circle cx="21" cy="156" r="16" fill="url(#halo-rojo)"/>
+          <rect x="18" y="150" width="6" height="13" rx="1" fill="#ff5a48"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Lluvia y relámpagos, delante de todo el paisaje -->
+  <div class="lluvia" aria-hidden="true"><div class="gotas gotas-lejos"></div><div class="gotas gotas-cerca"></div></div>
+  <div class="relampago"></div>
+</main>
+
+<!-- Controles: botones grandes para el dedo. Usar solo con el carro detenido. -->
+<nav class="controles" aria-label="Controles">
+  <label class="boton b-carretera" for="esc-carretera">Carretera</label>
+  <label class="boton b-tierra" for="esc-tierra">Tierra</label>
+  <label class="boton b-montana" for="esc-montana">Montaña</label>
+  <label class="boton b-alrededores" for="esc-alrededores">Alrededores</label>
+  <label class="boton b-escena-auto" for="escena-auto">Auto</label>
+  <span class="separador"></span>
+  <label class="boton b-pausa" for="pausa"><span class="t-pausa">Pausa</span><span class="t-seguir">Seguir</span></label>
+  <label class="boton b-gps" for="gps">GPS</label>
+  <!-- Botón de luz: cada toque pasa al modo siguiente (auto, día, noche) -->
+  <label class="boton b-luz l-auto" for="luz-dia">Auto<span class="fase"></span></label>
+  <label class="boton b-luz l-dia" for="luz-noche">Día</label>
+  <label class="boton b-luz l-noche l-noche-js" for="luz-auto">Noche</label>
+  <label class="boton b-luz l-noche l-noche-sin-js" for="luz-dia">Noche</label>
+  <label class="boton b-ajustes" for="ajustes">Ajustes</label>
+  <label class="boton b-ocultar" for="ocultar">Ocultar</label>
+</nav>
+
+<!-- Panel de datos (widgets). Lo llena js/widgets.js; sin JavaScript no aparece. -->
+<section class="widgets" aria-label="Datos del viaje">
+  <div class="w w-vel">
+    <div class="w-tit">Velocidad</div>
+    <div class="w-num"><span data-w="vel">--</span><small>km/h</small><span class="limite" title="Límite de la calle (OpenStreetMap)"><span data-w="limite"></span></span></div>
+    <div class="w-sub"><span data-w="prom">Prom. 0</span><span data-w="max">Máx. 0</span></div>
+    <div class="w-nota" data-w="fuente">Activa el GPS</div>
+    <div class="w-nota w-calle" data-w="calle"></div>
+  </div>
+  <div class="w w-viaje" role="button" tabindex="0">
+    <div class="w-tit">Viaje</div>
+    <div class="w-num"><span data-w="dist">0,0</span><small>km</small></div>
+    <div class="w-sub" data-w="tiempo">0 min en movimiento</div>
+    <div class="w-sub" data-w="costo"></div>
+    <div class="w-nota"><span class="n-normal">Dos toques para reiniciar</span><span class="n-armado">Toca otra vez para reiniciar</span></div>
+  </div>
+  <div class="w w-rumbo">
+    <div class="w-tit">Rumbo</div>
+    <div class="w-num">
+      <svg class="flecha" data-w="flecha" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="11" fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.5"/><path d="M0,-8 L5,6 L0,3 L-5,6 Z" fill="currentColor"/></svg>
+      <span data-w="cardinal">--</span>
+    </div>
+    <div class="w-sub" data-w="alt">Altura: sin dato</div>
+  </div>
+  <div class="w w-hora">
+    <div class="w-tit">Hora</div>
+    <div class="w-num" data-w="hora">--</div>
+    <div class="w-sub" data-w="sol"></div>
+    <div class="w-nota" data-w="luna"></div>
+  </div>
+  <div class="w w-clima">
+    <div class="w-tit">Clima</div>
+    <div class="w-num" data-w="temp">sin dato</div>
+    <div class="w-sub" data-w="cielo"></div>
+  </div>
+  <div class="w w-carro" data-nivel="sin">
+    <div class="w-tit">Carro</div>
+    <div class="w-num"><span data-w="odometro">--</span><small>km</small></div>
+    <div class="w-sub" data-w="servicio">Configúralo en Ajustes</div>
+  </div>
+</section>
+
+<!-- Ajustes: odómetro, mantenimiento, gasolina, plan de viaje y respaldo. Lo maneja js/ajustes.js. -->
+<aside class="ajustes" aria-label="Ajustes">
+  <div class="a-cabeza">
+    <h2>Ajustes</h2>
+    <label class="boton chico" for="ajustes">Cerrar</label>
+  </div>
+
+  <section class="a-bloque">
+    <h3>Pantalla</h3>
+    <div class="a-fila"><label class="boton chico b-datos" for="datos">Panel de datos</label></div>
+    <p class="a-ayuda">Muestra u oculta las tarjetas de velocidad, viaje, rumbo, hora, clima y carro.</p>
+    <div class="a-rejilla">
+      <label>Cielo<select id="a-cielo">
+        <option value="real">Según el clima real</option>
+        <option value="despejado">Siempre despejado</option>
+        <option value="parcial">Probar: parcialmente nublado</option>
+        <option value="nublado">Probar: nublado</option>
+        <option value="lluvia">Probar: lluvia</option>
+        <option value="tormenta">Probar: tormenta</option>
+      </select></label>
+    </div>
+    <p class="a-ayuda" data-a="cielo-estado">Con el clima real, el cielo cambia según el dato del clima (necesita internet).</p>
+  </section>
+
+  <section class="a-bloque">
+    <h3>Odómetro</h3>
+    <p class="a-dato">Kilometraje: <b data-a="odo">sin configurar</b></p>
+    <div class="a-fila">
+      <input id="a-odo" type="number" min="0" step="1" inputmode="numeric" placeholder="Lo que marca el tablero">
+      <button type="button" class="boton chico" data-accion="odo">Guardar</button>
+    </div>
+    <p class="a-ayuda">Escribe lo que marca el tablero. Desde ahí el GPS va sumando lo que recorres con la pantalla encendida.</p>
+  </section>
+
+  <section class="a-bloque">
+    <h3>Mantenimiento</h3>
+    <p class="a-dato" data-a="mant">Sin configurar</p>
+    <div class="a-rejilla">
+      <label>Último servicio<input id="a-mant-fecha" type="date"></label>
+      <label>Km en ese servicio<input id="a-mant-km" type="number" min="0" step="1" inputmode="numeric"></label>
+      <label>Cada (meses)<input id="a-mant-meses" type="number" min="1" step="1" inputmode="numeric"></label>
+      <label>Cada (km)<input id="a-mant-kmint" type="number" min="0" step="500" inputmode="numeric"></label>
+    </div>
+    <div class="a-fila">
+      <button type="button" class="boton chico" data-accion="mant">Guardar</button>
+      <button type="button" class="boton chico" data-accion="mant-hoy">Hice el servicio hoy</button>
+    </div>
+    <p class="a-ayuda">Toca lo que llegue primero: los meses o los km. "Cada (km)" en 0 = solo por meses.</p>
+    <ul class="a-lista" data-a="mant-hist"></ul>
+  </section>
+
+  <section class="a-bloque">
+    <h3>Gasolina</h3>
+    <div class="a-rejilla">
+      <label>Ver en<select id="a-unidad"><option value="litro">Litros</option><option value="galon">Galones</option></select></label>
+      <label><span>Precio por <span data-a="precio-unidad">litro</span> ($)</span><input id="a-precio" type="number" min="0" step="0.001" inputmode="decimal"></label>
+      <label>Tipo<select id="a-tipo"><option value="91">91 octanos</option><option value="95">95 octanos</option></select></label>
+      <label>Consumo (km por litro)<input id="a-consumo" type="number" min="1" step="0.1" inputmode="decimal"></label>
+    </div>
+    <div class="a-fila"><button type="button" class="boton chico" data-accion="gas">Guardar</button></div>
+    <p class="a-dato" data-a="costo-km"></p>
+    <p class="a-ayuda" data-a="precio-equiv"></p>
+    <p class="a-ayuda" data-a="gas-ayuda"></p>
+  </section>
+
+  <section class="a-bloque">
+    <h3>Plan de viaje</h3>
+    <div class="a-rejilla">
+      <label>Distancia del tramo (km)<input id="a-plan-km" type="number" min="0" step="1" inputmode="decimal"></label>
+      <label class="a-check"><input id="a-plan-iv" type="checkbox"> Ida y vuelta</label>
+    </div>
+    <p class="a-dato a-grande" data-a="plan"></p>
+  </section>
+
+  <section class="a-bloque">
+    <h3>Historial</h3>
+    <p class="a-dato" data-a="mes"></p>
+    <ul class="a-lista" data-a="viajes"></ul>
+  </section>
+
+  <section class="a-bloque a-diag">
+    <h3>Diagnóstico de la pantalla</h3>
+    <p class="a-ayuda">Para saber qué tiene esta pantalla: sensores de movimiento (para un inclinómetro 4x4), GPS e internet.</p>
+    <ul class="a-lista" data-a="diag-pantalla"></ul>
+    <div class="a-fila">
+      <button type="button" class="boton chico" data-accion="diag-sensores">Probar sensores</button>
+      <button type="button" class="boton chico" data-accion="diag-gps">Probar GPS</button>
+      <button type="button" class="boton chico" data-accion="diag-internet">Probar internet</button>
+    </div>
+    <p class="a-dato" data-a="diag-sensores"></p>
+    <p class="a-dato" data-a="diag-gps"></p>
+    <p class="a-dato" data-a="diag-internet"></p>
+  </section>
+
+  <section class="a-bloque">
+    <h3>Respaldo</h3>
+    <p class="a-ayuda">Todo se guarda en este navegador. Si se borran sus datos, se pierde: exporta un respaldo de vez en cuando.</p>
+    <div class="a-fila">
+      <button type="button" class="boton chico" data-accion="exportar">Exportar respaldo</button>
+      <label class="boton chico">Importar respaldo<input id="a-importar" type="file" accept="application/json,.json" hidden></label>
+      <button type="button" class="boton chico peligro" data-accion="borrar">Borrar todo</button>
+    </div>
+    <p class="a-dato" data-a="msg"></p>
+  </section>
+</aside>
+<label class="boton b-menu" for="ocultar">Menú</label>
+<div class="velocimetro" data-estado="apagado" aria-live="polite"></div>
+
+<!-- Opcional: velocidad según el GPS. Sin JavaScript, todo lo demás funciona igual. -->
+<script src="js/gps.js"></script>
+<!-- Opcional: día o noche automático según la hora (del equipo, corregida por internet si se puede) -->
+<script src="js/luz.js"></script>
+<!-- Opcional: base de datos local (odómetro, mantenimiento, gasolina, viajes) -->
+<script src="js/db.js"></script>
+<!-- Opcional: panel de datos (velocidad, viaje, rumbo, hora, clima, carro) -->
+<script src="js/widgets.js"></script>
+<!-- Opcional: límite de velocidad y escena automática con OpenStreetMap -->
+<script src="js/mapa.js"></script>
+<!-- Opcional: el cielo sigue el clima real (sol, nubes, lluvia, tormenta) -->
+<script src="js/cielo.js"></script>
+<!-- Opcional: fase real de la luna -->
+<script src="js/luna.js"></script>
+<!-- Opcional: panel de ajustes -->
+<script src="js/ajustes.js"></script>
+<!-- Solo en la versión web (HTTPS): guardar para usar sin internet y mantener la pantalla encendida -->
+<script src="js/pwa.js"></script>
+
+</body>
+</html>
