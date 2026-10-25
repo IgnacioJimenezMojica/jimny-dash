@@ -31,7 +31,7 @@
       // Consumo: unos 12 km/l, lo que reportan dueños de Jimny 1.5 manual con parrilla y llantas AT (8,3 l/100 km);
       // el dato de fábrica ronda los 14 a 15 km/l.
       // Se guarda por galón; se muestra en la unidad elegida (litro por defecto: en Panamá se compra por litro)
-      combustible: { precioGalon: 4.84, tipo: '91', consumoKmL: 12, precioFecha: '2026-10-16', unidad: 'litro', favoritas: ['Puma', 'Texaco'] },
+      combustible: { precioGalon: 4.84, tipo: '91', consumoKmL: 12, precioFecha: '2026-10-16', unidad: 'litro', favoritas: ['Terpel', 'Texaco'] },
       plan: { km: 0, idaVuelta: true },
       viajes: [],
       destinos: { lista: [], activo: null },
@@ -55,6 +55,12 @@
   }
 
   var datos = leer();
+  // La primera versión traía Puma por un error al entender el nombre; la de Nacho es Terpel
+  // (una sola vez: si después alguien escoge Puma a propósito, se respeta)
+  if (!datos.combustible.favoritasRevisadas) {
+    if (JSON.stringify(datos.combustible.favoritas) === '["Puma","Texaco"]') datos.combustible.favoritas = ['Terpel', 'Texaco'];
+    datos.combustible.favoritasRevisadas = true;
+  }
 
   function guardar() {
     try { localStorage.setItem(CLAVE, JSON.stringify(datos)); } catch (e) { /* sin almacenamiento */ }

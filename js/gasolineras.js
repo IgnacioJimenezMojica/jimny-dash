@@ -5,7 +5,7 @@
      OpenStreetMap (API Overpass, la misma del límite de
      velocidad). Se guardan y solo se pide de nuevo al alejarse
      3 km, o si lo guardado tiene más de una semana.
-   - Muestra la más cercana de cada favorita (por defecto Puma
+   - Muestra la más cercana de cada favorita (por defecto Terpel
      y después Texaco, se cambian en Ajustes > Gasolina), con
      la distancia en línea recta y una flecha hacia dónde queda.
    - Si otra marca queda más cerca, lo dice abajo.
