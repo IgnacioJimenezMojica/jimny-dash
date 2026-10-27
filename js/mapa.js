@@ -9,10 +9,18 @@
      además vaya en la misma dirección que el rumbo).
    - Límite de velocidad: etiqueta maxspeed de esa calle. Si la
      calle no lo tiene cargado en el mapa, lo dice.
-   - Escena automática: elige carretera, alrededores, tierra o
-     montaña según el tipo de calle, si es de tierra, la altura
-     y la velocidad. Cambia con calma (el cambio tiene que
-     mantenerse 15 s y pasa como mucho uno cada 40 s).
+   - Zona: en la misma consulta pregunta en qué zonas está el
+     punto (is_in: landuse, place) y cuenta edificios a 150 m y
+     tiendas a 200 m. Con eso separa ciudad de pueblo.
+   - Escena automática, en este orden:
+       1. lo aprendido de lo que Nacho elige a mano (zonas.js)
+       2. altura de 700 m o más: montaña
+       3. camino de tierra: tierra
+       4. autopista o troncal: carretera
+       5. zona de ciudad o de pueblo según el mapa
+       6. tipo de calle y, si no hay datos, la velocidad
+     Cambia con calma (el cambio tiene que mantenerse 15 s y
+     pasa como mucho uno cada 40 s).
 
    Sin internet o sin GPS no hace nada y todo sigue igual.
    ========================================================= */
@@ -24,6 +32,10 @@
   var TOLERANCIA_EXCESO = 5;   // km/h por encima del límite antes de avisar
   var TIPOS = 'motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|track|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link';
   var CARRETERA = /^(motorway|trunk|primary)(_link)?$/;
+  var AUTOPISTA = /^(motorway|trunk)(_link)?$/;
+  // Umbrales para separar ciudad y pueblo. Son iniciales: se afinan con el botón
+  // "¿Qué dice el mapa aquí?" en recorridos reales (en Panamá no todo está dibujado).
+  var CIUDAD_EDIFICIOS = 40, CIUDAD_TIENDAS = 6, PUEBLO_EDIFICIOS = 8;
   var BARRIO = /^(residential|living_street|service)$/;
   var TIERRA = /^(unpaved|dirt|gravel|fine_gravel|ground|compacted|sand|earth|mud|grass|pebblestone|rock)$/;
   var ALTURA_MONTANA = 700;    // metros sobre el nivel del mar
@@ -59,7 +71,14 @@
     if (estado.pidiendo || ahora - estado.ultimoPedido < MIN_ENTRE_PEDIDOS || ahora < estado.esperarHasta) return;
     if (!window.fetch || navigator.onLine === false) return;
     estado.pidiendo = true; estado.ultimoPedido = ahora;
-    var consulta = '[out:json][timeout:20];way(around:' + RADIO + ',' + p.lat.toFixed(5) + ',' + p.lon.toFixed(5) + ')["highway"~"^(' + TIPOS + ')$"];out tags geom qt;';
+    var ll = p.lat.toFixed(5) + ',' + p.lon.toFixed(5);
+    var consulta = '[out:json][timeout:20];' +
+      'way(around:' + RADIO + ',' + ll + ')["highway"~"^(' + TIPOS + ')$"];out tags geom qt;' +
+      // Zonas que contienen el punto (landuse, place, barrio)
+      'is_in(' + ll + ')->.zonas;(area.zonas["landuse"];area.zonas["place"];);out tags;' +
+      // Edificios y tiendas cerca: solo la cantidad
+      'way(around:150,' + ll + ')["building"];out count;' +
+      'nwr(around:200,' + ll + ')["shop"];out count;';
     intentar(0);
 
     function intentar(i) {
@@ -70,7 +89,7 @@
           return r.json();
         })
         .then(function (j) {
-          estado.area = { centro: { lat: p.lat, lon: p.lon }, cuando: Date.now(), calles: convertir(j) };
+          estado.area = { centro: { lat: p.lat, lon: p.lon }, cuando: Date.now(), calles: convertir(j), zona: leerZona(j) };
           estado.error = null;
           try { localStorage.setItem('jimny-calles', JSON.stringify(estado.area)); } catch (e) { /* muy grande o sin almacenamiento */ }
           estado.pidiendo = false;
@@ -93,6 +112,38 @@
         puntos: el.geometry.map(function (g) { return [g.lat, g.lon]; }),
       };
     });
+  }
+
+  // Zona alrededor del punto: landuse, place, y cuántos edificios y tiendas hay
+  function leerZona(j) {
+    var z = { landuse: [], place: [], edificios: null, tiendas: null };
+    var conteos = [];
+    (j.elements || []).forEach(function (el) {
+      var t = el.tags || {};
+      if (el.type === 'area') {
+        if (t.landuse && z.landuse.indexOf(t.landuse) < 0) z.landuse.push(t.landuse);
+        if (t.place && z.place.indexOf(t.place) < 0) z.place.push(t.place);
+      } else if (el.type === 'count') conteos.push(+(t.total || 0));
+    });
+    if (conteos.length >= 1) z.edificios = conteos[0];
+    if (conteos.length >= 2) z.tiendas = conteos[1];
+    return z;
+  }
+
+  // 'ciudad', 'pueblo' o null, con la razón
+  function clasificarZona(z) {
+    if (!z) return null;
+    var lu = z.landuse || [], pl = z.place || [];
+    var ed = z.edificios || 0, ti = z.tiendas || 0;
+    var comercial = lu.indexOf('commercial') >= 0 || lu.indexOf('retail') >= 0;
+    if (comercial) return { tipo: 'ciudad', razon: 'zona comercial' };
+    if (ed >= CIUDAD_EDIFICIOS) return { tipo: 'ciudad', razon: ed + ' edificios cerca' };
+    if (ti >= CIUDAD_TIENDAS) return { tipo: 'ciudad', razon: ti + ' tiendas cerca' };
+    if (pl.indexOf('city') >= 0 && (ed >= 15 || ti >= 2)) return { tipo: 'ciudad', razon: 'dentro de una ciudad' };
+    if (lu.indexOf('residential') >= 0) return { tipo: 'pueblo', razon: 'zona residencial' };
+    if (pl.some(function (x) { return /^(town|village|hamlet|suburb|neighbourhood|quarter|city)$/.test(x); })) return { tipo: 'pueblo', razon: 'dentro de un poblado' };
+    if (ed >= PUEBLO_EDIFICIOS) return { tipo: 'pueblo', razon: ed + ' edificios cerca' };
+    return null;
   }
 
   // "60" -> 60, "40 mph" -> 64, "none" o "PA:urban" -> null
@@ -152,10 +203,18 @@
 
   // ---------- Escena automática ----------
   function escenaPara(d, kmh) {
+    // 1. Lo aprendido de lo que Nacho elige a mano
+    if (window.jimnyZonas && typeof d.latitud === 'number') {
+      var ap = window.jimnyZonas.sugerir(d.latitud, d.longitud);
+      if (ap && ap.escena) return { escena: ap.escena, razon: ap.razon, fuente: 'aprendido' };
+    }
     if (typeof d.altitud === 'number' && d.altitud >= ALTURA_MONTANA) return { escena: 'montana', razon: 'altura ' + Math.round(d.altitud) + ' m' };
     var c = estado.calle && estado.calle.calle;
+    if (c && (c.tipo === 'track' || TIERRA.test(c.superficie))) return { escena: 'tierra', razon: 'camino de tierra' };
+    if (c && AUTOPISTA.test(c.tipo)) return { escena: 'carretera', razon: 'autopista o troncal' };
+    var zona = clasificarZona(estado.area && estado.area.zona);
+    if (zona) return { escena: zona.tipo === 'ciudad' ? 'ciudad' : 'alrededores', razon: zona.razon, fuente: 'mapa' };
     if (c) {
-      if (c.tipo === 'track' || TIERRA.test(c.superficie)) return { escena: 'tierra', razon: 'camino de tierra' };
       if (CARRETERA.test(c.tipo)) return { escena: 'carretera', razon: 'vía principal' };
       if (BARRIO.test(c.tipo)) return { escena: 'alrededores', razon: 'calle de barrio' };
     }
@@ -227,5 +286,32 @@
     poner('calle', texto);
   }
 
-  window.jimnyMapa = { estado: estado, leerLimite: leerLimite, escenaPara: escenaPara, convertir: convertir };
+  // ---------- "¿Qué dice el mapa aquí?" (Ajustes > Sistema) ----------
+  function diagnostico() {
+    var W = window.jimnyWidgets, g = W && W.gps.ultimo;
+    if (!g) return ['Activa el GPS y espera la primera posición.'];
+    var lineas = [];
+    var c = estado.calle && estado.calle.calle;
+    lineas.push('Calle: ' + (c ? (c.nombre || 'sin nombre') + ' (tipo ' + c.tipo + (c.superficie ? ', superficie ' + c.superficie : '') + ')' : (estado.area ? 'ninguna del mapa cerca' : 'todavía sin datos del mapa')));
+    lineas.push('Límite: ' + (estado.limite ? estado.limite + ' km/h' : 'no está en el mapa'));
+    var z = estado.area && estado.area.zona;
+    if (z) {
+      lineas.push('Zona: ' + (z.landuse.length ? 'landuse ' + z.landuse.join(', ') : 'sin landuse') + '; ' + (z.place.length ? 'place ' + z.place.join(', ') : 'sin place'));
+      lineas.push('Cerca: ' + (z.edificios === null ? '?' : z.edificios) + ' edificios a 150 m y ' + (z.tiendas === null ? '?' : z.tiendas) + ' tiendas a 200 m');
+      var cz = clasificarZona(z);
+      lineas.push('Según el mapa: ' + (cz ? (cz.tipo === 'ciudad' ? 'Ciudad' : 'Pueblo') + ' (' + cz.razon + ')' : 'ni ciudad ni pueblo'));
+      var dist = Math.round(distanciaM(estado.area.centro, g));
+      lineas.push('(Datos pedidos a ' + dist + ' m de aquí, ' + Math.round((Date.now() - estado.area.cuando) / 60000) + ' min atrás)');
+    }
+    if (window.jimnyZonas) {
+      var Z = window.jimnyZonas, v = Z.votosDe(g.lat, g.lon), sug = Z.sugerir(g.lat, g.lon);
+      lineas.push('Aprendido en este cuadro: ' + (v ? Z.ESCENAS.map(function (e, i) { return v[i] ? Z.NOMBRES[e] + ' ' + v[i] : ''; }).filter(Boolean).join(', ') : 'nada todavía'));
+      if (sug && sug.escena) lineas.push('Con los vecinos: ' + Z.NOMBRES[sug.escena] + ' (' + Math.round(sug.parte * 100) + ' %)');
+    }
+    var e = escenaPara({ latitud: g.lat, longitud: g.lon, altitud: W.gps.altitud }, W.gps.vel);
+    lineas.push('En Auto pondría: ' + (e ? (window.jimnyZonas ? window.jimnyZonas.NOMBRES[e.escena] : e.escena) + ' (' + e.razon + ')' : 'la que esté'));
+    return lineas;
+  }
+
+  window.jimnyMapa = { estado: estado, leerLimite: leerLimite, escenaPara: escenaPara, convertir: convertir, leerZona: leerZona, clasificarZona: clasificarZona, diagnostico: diagnostico };
 })();

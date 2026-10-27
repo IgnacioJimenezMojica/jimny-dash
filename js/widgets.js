@@ -15,7 +15,9 @@
      pronóstico de lluvia cada 15 min (2 h) y la probabilidad
      por hora (6 h). Dice si va a llover pronto o cuándo para.
    - Carro: odómetro y cuándo toca el mantenimiento (db.js).
-   - El viaje muestra lo que va costando en gasolina (db.js).
+   - El viaje muestra lo que va costando en gasolina, con lo que
+     se gastó detenido y en tranque (consumo.js).
+   - Carro: también el tanque en vivo (rayitas y km que quedan).
 
    Los datos del GPS llegan con el evento "jimny-gps" de gps.js.
    ========================================================= */
@@ -65,10 +67,28 @@
     if (viaje && window.jimnyDB) window.jimnyDB.guardarViaje(viaje); // el viaje anterior pasa al historial
     viaje = nuevoViaje();
   }
-  var gps = { activo: false, vel: 0, ultimo: null, ultimoMovido: null, rumbo: null, altitud: null, precision: null, fuente: null };
+  // Viaje guardado por una versión anterior (sin litros): se estima lo de antes por km
+  if (typeof viaje.litros !== 'number') {
+    var kmL0 = window.jimnyDB ? window.jimnyDB.datos().combustible.consumoKmL : 12;
+    viaje.litros = viaje.metros / 1000 / (kmL0 > 0 ? kmL0 : 12);
+    viaje.litrosDetenido = 0; viaje.litrosTranque = 0; viaje.segDetenido = 0; viaje.segTranque = 0;
+  }
+  var gps = { activo: false, vel: 0, velDato: null, ultimo: null, ultimoMovido: null, rumbo: null, altitud: null, precision: null, fuente: null, ultimaVez: 0 };
 
   var posicionesSinGuardar = 0;
-  function nuevoViaje() { return { metros: 0, segundos: 0, maxima: 0, inicio: Date.now(), ultimaVez: Date.now() }; }
+  function nuevoViaje() {
+    return { metros: 0, segundos: 0, maxima: 0, inicio: Date.now(), ultimaVez: Date.now(),
+      litros: 0, litrosDetenido: 0, litrosTranque: 0, segDetenido: 0, segTranque: 0 };
+  }
+
+  // Gasolina: lo que devuelve consumo.js se suma al viaje
+  function sumarGasto(g, segundos, detenido) {
+    if (!g) return;
+    viaje.litros += g.litros;
+    if (detenido) { viaje.litrosDetenido += g.litros; viaje.segDetenido += segundos; }
+    else if (g.tipo === 't') viaje.litrosTranque += g.litros;
+    if (g.tranque) viaje.segTranque += segundos;
+  }
 
   window.addEventListener('jimny-gps', function (ev) {
     var d = ev.detail || {};
@@ -85,6 +105,8 @@
     // Para decidir si se mueve se usa el dato sin suavizar, así no suma segundos al frenar
     var vDato = d.fuente === 'equipo' ? d.kmh : d.kmhSuave;
     var enMovimiento = typeof vDato === 'number' && vDato >= VEL_MOVIMIENTO;
+    gps.velDato = typeof vDato === 'number' ? vDato : null;
+    gps.ultimaVez = Date.now();
 
     var punto = { lat: d.latitud, lon: d.longitud, t: d.t };
     if (gps.ultimo && d.precision <= PRECISION_VIAJE) {
@@ -96,6 +118,7 @@
         if (++posicionesSinGuardar >= 5) { posicionesSinGuardar = 0; guardar('jimny-viaje', viaje); }
         viaje.segundos += dt;
         viaje.maxima = Math.max(viaje.maxima, gps.vel);
+        if (window.jimnyConsumo) sumarGasto(window.jimnyConsumo.movimiento(tramo, dt, vDato), dt, false);
         viaje.ultimaVez = Date.now();
       }
     }
@@ -126,8 +149,16 @@
     poner('dist', numero(viaje.metros / 1000, 1));
     var min = Math.round(viaje.segundos / 60);
     poner('tiempo', (min < 60 ? min + ' min' : Math.floor(min / 60) + ' h ' + (min % 60) + ' min') + ' en movimiento');
-    var costo = window.jimnyDB ? window.jimnyDB.costoDe(viaje.metros / 1000) : null;
-    poner('costo', costo === null ? '' : dinero(costo) + ' en gasolina');
+    var db0 = window.jimnyDB;
+    var precio = db0 ? db0.precioLitro() : 0;
+    poner('costo', db0 ? dinero(viaje.litros * precio) + ' en gasolina' : '');
+    // De eso: detenido y en tranque (solo si hay algo)
+    var partes = [];
+    if (viaje.litrosDetenido * precio >= 0.005) partes.push('detenido ' + dinero(viaje.litrosDetenido * precio) + ' (' + Math.round(viaje.segDetenido / 60) + ' min)');
+    if (viaje.litrosTranque * precio >= 0.005 || viaje.segTranque >= 60) partes.push('tranque ' + dinero(viaje.litrosTranque * precio) + ' (' + Math.round(viaje.segTranque / 60) + ' min)');
+    poner('gasto-detalle', partes.length ? 'De eso, ' + partes.join(', ') : '');
+    var tv = panel.querySelector('.w-viaje');
+    if (tv) tv.classList.toggle('en-tranque', !!(window.jimnyConsumo && window.jimnyConsumo.enTranque()));
     pintarCarro();
 
     if (gps.rumbo !== null) {
@@ -156,6 +187,17 @@
     }
   });
 
+  // Tiempo detenido con el motor encendido: cada 5 s, si el GPS está activo, con una posición
+  // reciente y el carro quieto. (Las paradas no siempre traen posiciones nuevas del GPS.)
+  var ultimoGuardadoDetenido = 0;
+  setInterval(function () {
+    if (!gps.activo || !gps.ultimaVez || Date.now() - gps.ultimaVez > 30000) return;
+    if (gps.velDato === null || gps.velDato >= VEL_MOVIMIENTO || !window.jimnyConsumo) return;
+    sumarGasto(window.jimnyConsumo.detenido(5), 5, true);
+    if (Date.now() - ultimoGuardadoDetenido > 30000 && window.jimnyDB) { ultimoGuardadoDetenido = Date.now(); window.jimnyDB.guardar(); }
+    else pintarGPS();
+  }, 5000);
+
   // Se guarda cada 5 s y al salir u ocultar la página (por si se apaga la pantalla de golpe)
   setInterval(function () { guardar('jimny-viaje', viaje); }, 5000);
   window.addEventListener('pagehide', function () { guardar('jimny-viaje', viaje); });
@@ -168,6 +210,11 @@
     if (!db || !tarjeta) return;
     var odo = db.odometroKm();
     poner('odometro', odo === null ? '--' : numero(odo));
+    // Tanque en vivo
+    var tq = window.jimnyConsumo ? window.jimnyConsumo.tanque() : null;
+    var rr = tq ? Math.round(tq.rayitas) : 0;
+    poner('tanque', tq ? 'Tanque ~' + rr + (rr === 1 ? ' rayita, ' : ' rayitas, ') + numero(Math.round(Math.max(0, tq.km) / 10) * 10) + ' km' : '');
+    tarjeta.classList.toggle('tanque-bajo', !!(tq && tq.bajo));
     var e = db.estadoMantenimiento(ahora());
     tarjeta.dataset.nivel = e.configurado ? e.nivel : 'sin';
     if (!e.configurado) { poner('servicio', 'Configúralo en Ajustes'); return; }

@@ -21,7 +21,7 @@
 
   // Velocidad real (km/h) que corresponde a la animación normal de cada escena.
   // Ejemplo: en carretera, a 80 km/h la animación va a su velocidad de diseño.
-  var VELOCIDAD_BASE = { carretera: 80, alrededores: 40, tierra: 30, montana: 20 };
+  var VELOCIDAD_BASE = { carretera: 80, alrededores: 40, ciudad: 35, tierra: 30, montana: 20 };
   var RITMO_MAXIMO = 2;      // nunca más del doble de la velocidad de diseño
   var VEL_DETENIDO = 3;      // por debajo de esto (km/h) se considera detenido
   var PRECISION_MAX = 50;    // metros; posiciones peores se ignoran para calcular

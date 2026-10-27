@@ -38,6 +38,12 @@
     $('a-tipo').value = d.combustible.tipo;
     $('a-consumo').value = d.combustible.consumoKmL;
     $('a-favoritas').value = (d.combustible.favoritas || []).join(', ');
+    $('a-caja').value = d.combustible.caja === 'automatico' ? 'automatico' : 'manual';
+    $('a-aire').value = d.combustible.aire === false ? 'no' : 'si';
+    $('a-ralenti-aire').value = d.combustible.ralentiConAire;
+    $('a-ralenti-sin').value = d.combustible.ralentiSinAire;
+    $('a-tranque').value = window.jimnyConsumo ? window.jimnyConsumo.factorTranque() : 1.5;
+    $('a-ll-precio').value = +db.precioLitro().toFixed(3);
     $('a-plan-km').value = d.plan.km || '';
     $('a-plan-iv').checked = !!d.plan.idaVuelta;
     pintar();
@@ -76,6 +82,8 @@
     if (km > 0 && ck !== null && cant) poner('plan', num(km) + ' km: ' + num(cant.valor, 1) + ' ' + cant.unidad + ', ' + dinero(db.costoDe(km)));
     else poner('plan', 'Escribe la distancia para calcular el costo.');
 
+    pintarGasolina();
+
     var mes = db.resumenMes();
     poner('mes', 'Este mes: ' + num(mes.km, 1) + ' km en ' + mes.viajes + (mes.viajes === 1 ? ' viaje' : ' viajes') + ', ' + dinero(mes.costo) + ' en gasolina.');
     var lv = a('viajes');
@@ -89,6 +97,76 @@
     });
     if (!d.viajes.length) { var li = document.createElement('li'); li.textContent = 'Todavía no hay viajes guardados.'; lv.appendChild(li); }
   }
+
+  // ---------- Tanque, lecturas del odómetro, llenados y consumo real ----------
+  function opcionesRayitas(sel, conVacio) {
+    if (sel.options.length) return;
+    if (conVacio) { var o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'No me fijé'; sel.appendChild(o0); }
+    for (var r = 0; r <= 10; r++) { var o = document.createElement('option'); o.value = r; o.textContent = r + (r === 10 ? ' (lleno)' : r === 5 ? ' (medio)' : ''); sel.appendChild(o); }
+  }
+  opcionesRayitas($('a-rayitas-ahora')); opcionesRayitas($('a-ll-antes'), true); opcionesRayitas($('a-ll-despues'));
+  $('a-ll-despues').value = '10';
+  function verDespues() { panel.querySelector('.a-ll-despues').hidden = $('a-ll-tope').checked; }
+  $('a-ll-tope').addEventListener('change', verDespues); verDespues();
+
+  function kmL(lPorKm) { return lPorKm > 0 ? num(1 / lPorKm, 1) : '?'; }
+
+  function pintarGasolina() {
+    var K = window.jimnyConsumo, d = db.datos();
+    if (!K) return;
+    // Tanque
+    var t = K.tanque();
+    poner('tanque-nivel', t ? 'Unas ' + num(Math.round(t.rayitas)) + ' de 10 rayitas (' + num(t.litros, 1) + ' L), para unos ' + num(Math.round(t.km / 10) * 10) + ' km' : 'Registra un llenado o corrige las rayitas para empezar.');
+    if (t) $('a-rayitas-ahora').value = String(Math.round(t.rayitas));
+    // Lecturas del odómetro con lo que la app no vio
+    var ul = a('lecturas'), L = d.odometro.lecturas;
+    ul.innerHTML = '';
+    L.slice(0, 4).forEach(function (l, i) {
+      var li = document.createElement('li'), txt = fechaLarga(new Date(l.fecha)) + ': ' + num(l.km) + ' km';
+      var cob = L[i + 1] ? db.coberturaEntre(l, L[i + 1]) : null;
+      if (cob) txt += '. Desde la anterior la app vio ' + num(cob.parte * 100) + ' % (' + num(cob.kmApp, 0) + ' de ' + num(cob.kmReal) + ' km)';
+      li.textContent = txt; ul.appendChild(li);
+    });
+    // Consumo real
+    var r = K.resumen(), cont = a('consumo-real'), lineas = [];
+    if (r.kmL) lineas.push('<b>Consumo real: ' + num(r.kmL, 1) + ' km por litro</b> (últimos ' + r.ultimos + (r.ultimos === 1 ? ' tanque' : ' tanques') + ')');
+    else lineas.push('Consumo real: hace falta un segundo llenado para calcularlo.');
+    if (r.ultimo) lineas.push('Último tramo: ' + num(r.ultimo.kmReal) + ' km, ' + num(r.ultimo.gastado, 1) + ' L. ' + (r.ultimo.parte > 0 ? 'La app vio el ' + num(r.ultimo.parte * 100) + ' % de esos km.' : 'La app no vio esos km (no estaba abierta), así que no sirve para el desglose.'));
+    var c = r.coef;
+    lineas.push((r.aprendido ? 'Aprendido de ' + r.n + ' tanques' : 'Valores iniciales' + (r.n ? ' (ajustándose con ' + r.n + (r.n === 1 ? ' tanque' : ' tanques') + ')' : '')) + ': carretera ' + kmL(c[0]) + ' km/L, ciudad ' + kmL(c[1]) + ', tranque ' + kmL(c[2]) + ', detenido ' + num(c[3], 2) + ' L/h con aire y ' + num(c[4], 2) + ' sin aire.');
+    if (r.rayitas.datos) lineas.push('Rayitas: cada una vale unos ' + num(r.rayitas.beta, 1) + ' L (aprendido de ' + r.rayitas.datos + ' llenados).');
+    cont.innerHTML = lineas.map(function (x) { return '<p class="a-dato">' + x + '</p>'; }).join('');
+    // Lista de llenados
+    var ll = a('llenados');
+    ll.innerHTML = '';
+    var tr = {};
+    K.tramos().forEach(function (f) { tr[f.fecha] = f; });
+    d.consumo.llenados.slice().reverse().slice(0, 8).forEach(function (f) {
+      var li = document.createElement('li'); li.className = 'a-llenado';
+      var span = document.createElement('span');
+      var x = tr[f.fecha];
+      span.textContent = fechaLarga(new Date(f.fecha)) + ': ' + num(f.litros, 2) + ' L a los ' + num(f.km) + ' km' + (f.aTope ? '' : ' (no a tope)') +
+        (typeof f.rayitasAntes === 'number' ? ', tenía ' + f.rayitasAntes + ' rayitas' : '') + (x ? '. ' + num(x.kmReal / x.gastado, 1) + ' km/L' : '');
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'boton chico peligro'; b.textContent = 'Borrar'; b.setAttribute('data-borrar-llenado', f.fecha);
+      li.appendChild(span); li.appendChild(b); ll.appendChild(li);
+    });
+  }
+
+  panel.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-borrar-llenado]');
+    if (!b || !window.jimnyConsumo) return;
+    if (b.classList.contains('armado')) { window.jimnyConsumo.borrarLlenado(b.getAttribute('data-borrar-llenado')); poner('ll-msg', 'Llenado borrado.'); pintar(); }
+    else { b.classList.add('armado'); b.textContent = 'Toca otra vez'; setTimeout(function () { b.classList.remove('armado'); b.textContent = 'Borrar'; }, 3000); }
+  });
+
+  // Cambiar la caja: si el consumo era el inicial de la otra caja, pasa al de esta (12 manual, 11 automático)
+  $('a-caja').addEventListener('change', function () {
+    var c = db.datos().combustible, antes = c.caja === 'automatico' ? 11 : 12;
+    c.caja = this.value;
+    if (Math.abs(c.consumoKmL - antes) < 0.001) c.consumoKmL = c.caja === 'automatico' ? 11 : 12;
+    db.guardar(); cargarFormulario(); aviso('Caja: ' + (c.caja === 'automatico' ? 'automática' : 'manual') + '.');
+  });
 
   // ---------- Acciones ----------
   var borrarArmado = 0;
@@ -116,7 +194,29 @@
       if (!(precio > 0) || !(consumo > 0)) { aviso('Revisa el precio y el consumo.'); return; }
       c.unidad = $('a-unidad').value; db.fijarPrecio(precio, c.unidad); c.consumoKmL = consumo; c.tipo = $('a-tipo').value; c.precioFecha = hoyISO();
       c.favoritas = $('a-favoritas').value.split(',').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 5);
+      c.aire = $('a-aire').value !== 'no';
+      var ra = parseFloat($('a-ralenti-aire').value), rs = parseFloat($('a-ralenti-sin').value), ft = parseFloat($('a-tranque').value);
+      if (ra > 0) c.ralentiConAire = ra;
+      if (rs > 0) c.ralentiSinAire = rs;
+      // El factor de tranque solo se guarda si es distinto al de la caja (así sigue a la caja si se cambia)
+      var deCaja = c.caja === 'automatico' ? 1.6 : 1.5;
+      c.factorTranque = ft >= 1 && Math.abs(ft - deCaja) > 0.001 ? ft : null;
       db.guardar(); aviso('Gasolina guardada.');
+    } else if (accion === 'llenado') {
+      try {
+        var antes = $('a-ll-antes').value, tope = $('a-ll-tope').checked;
+        var f = window.jimnyConsumo.agregarLlenado({
+          litros: parseFloat($('a-ll-litros').value), km: parseFloat($('a-ll-km').value),
+          rayitasAntes: antes === '' ? null : +antes, aTope: tope, rayitasDespues: tope ? null : +$('a-ll-despues').value,
+          precioLitro: parseFloat($('a-ll-precio').value),
+        });
+        $('a-ll-litros').value = ''; $('a-ll-km').value = ''; $('a-ll-antes').value = '';
+        poner('ll-msg', 'Llenado guardado: ' + num(f.litros, 2) + ' L. El odómetro quedó en ' + num(f.km) + ' km.');
+        cargarFormulario();
+      } catch (e) { poner('ll-msg', e.message); }
+    } else if (accion === 'rayitas') {
+      window.jimnyConsumo.corregirRayitas(+$('a-rayitas-ahora').value);
+      poner('ll-msg', '');
     } else if (accion === 'exportar') {
       var texto = db.exportar();
       var url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
@@ -127,7 +227,7 @@
       aviso('Respaldo descargado.');
     } else if (accion === 'borrar') {
       if (Date.now() - borrarArmado < 3000) {
-        db.borrarTodo(); try { localStorage.removeItem('jimny-viaje'); } catch (e) { /* nada */ }
+        db.borrarTodo(); try { localStorage.removeItem('jimny-viaje'); } catch (e) { /* nada */ } if (window.jimnyZonas) window.jimnyZonas.borrarTodo();
         borrarArmado = 0; b.textContent = 'Borrar todo'; cargarFormulario(); aviso('Datos borrados.');
       } else {
         borrarArmado = Date.now(); b.textContent = 'Toca otra vez para borrar';
@@ -203,6 +303,11 @@
     if (accion === 'diag-sensores') probarSensores();
     else if (accion === 'diag-gps') probarGPS();
     else if (accion === 'diag-internet') probarInternet();
+    else if (accion === 'diag-mapa') {
+      var ul = a('diag-mapa'), lineas = window.jimnyMapa ? window.jimnyMapa.diagnostico() : ['El mapa no está disponible.'];
+      ul.innerHTML = '';
+      lineas.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+    }
   });
 
   // Plan de viaje: se calcula mientras se escribe
@@ -240,10 +345,33 @@
     this.value = '';
   });
 
+  // ---------- Escenas aprendidas (zonas.js) ----------
+  var zonaArmada = 0;
+  function pintarZonas() {
+    var Z = window.jimnyZonas;
+    $('a-aprender').checked = db.datos().escenas.aprender !== false;
+    poner('zonas', Z ? 'Zonas aprendidas: ' + Z.cantidad() : '');
+  }
+  $('a-aprender').addEventListener('change', function () { db.datos().escenas.aprender = this.checked; db.guardar(); });
+  panel.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-accion]');
+    if (!b || !window.jimnyZonas) return;
+    var accion = b.getAttribute('data-accion'), Z = window.jimnyZonas;
+    if (accion === 'zona-olvidar') {
+      var g = window.jimnyWidgets && window.jimnyWidgets.gps.ultimo;
+      if (!g) { poner('zonas', 'Activa el GPS para saber en qué zona estás.'); return; }
+      var n = Z.olvidar(g.lat, g.lon);
+      poner('zonas', n ? 'Listo: se olvidó esta zona y sus vecinas (' + n + ' cuadros). Quedan ' + Z.cantidad() + '.' : 'No había nada aprendido aquí.');
+    } else if (accion === 'zonas-borrar') {
+      if (Date.now() - zonaArmada < 3000) { Z.borrarTodo(); zonaArmada = 0; b.textContent = 'Borrar lo aprendido'; pintarZonas(); }
+      else { zonaArmada = Date.now(); b.textContent = 'Toca otra vez para borrar'; setTimeout(function () { if (Date.now() - zonaArmada >= 3000) b.textContent = 'Borrar lo aprendido'; }, 3100); }
+    }
+  });
+
   // ---------- Pestañas (se recuerda la última) ----------
-  var TABS = ['pantalla', 'carro', 'gasolina', 'destinos', 'viajes', 'sistema'];
+  var TABS = ['controles', 'pantalla', 'carro', 'gasolina', 'destinos', 'viajes', 'sistema'];
   function abrirTab(nombre) {
-    if (TABS.indexOf(nombre) < 0) nombre = 'pantalla';
+    if (TABS.indexOf(nombre) < 0) nombre = 'controles';
     var primero = true;
     panel.querySelectorAll('[data-tab]').forEach(function (sec) {
       sec.hidden = sec.getAttribute('data-tab') !== nombre;
@@ -286,7 +414,7 @@
     if (c && window.jimnyWidgets) window.jimnyWidgets.fijarTarjeta(c.getAttribute('data-tarjeta-ver'), c.checked);
   });
 
-  casilla.addEventListener('change', function () { if (casilla.checked) { aviso(''); cargarFormulario(); pintarPantalla(); pintarTarjetas(); } });
+  casilla.addEventListener('change', function () { if (casilla.checked) { aviso(''); cargarFormulario(); pintarPantalla(); pintarTarjetas(); pintarZonas(); } });
   window.addEventListener('jimny-db', function () { if (casilla.checked) pintar(); });
 
   window.jimnyAjustes = { pintar: pintar, cargar: cargarFormulario, abrirTab: abrirTab };

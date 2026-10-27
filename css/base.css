@@ -57,7 +57,8 @@ body {
 #esc-carretera:checked ~ .escenario .escena-carretera,
 #esc-tierra:checked ~ .escenario .escena-tierra,
 #esc-montana:checked ~ .escenario .escena-montana,
-#esc-alrededores:checked ~ .escenario .escena-alrededores {
+#esc-alrededores:checked ~ .escenario .escena-alrededores,
+#esc-ciudad:checked ~ .escenario .escena-ciudad {
   opacity: 1;
   visibility: visible;
   transition: opacity 0.9s ease, visibility 0s;
@@ -72,7 +73,8 @@ body {
 #esc-carretera:checked ~ .escenario .ce-carretera,
 #esc-tierra:checked ~ .escenario .ce-tierra,
 #esc-montana:checked ~ .escenario .ce-montana,
-#esc-alrededores:checked ~ .escenario .ce-alrededores { opacity: 1; }
+#esc-alrededores:checked ~ .escenario .ce-alrededores,
+#esc-ciudad:checked ~ .escenario .ce-ciudad { opacity: 1; }
 
 /* ---------- Cielos compartidos y velo (noche y atardecer) ---------- */
 .cielo {
@@ -200,7 +202,8 @@ body {
 #esc-carretera:checked ~ .controles .b-carretera,
 #esc-tierra:checked ~ .controles .b-tierra,
 #esc-montana:checked ~ .controles .b-montana,
-#esc-alrededores:checked ~ .controles .b-alrededores {
+#esc-alrededores:checked ~ .controles .b-alrededores,
+#esc-ciudad:checked ~ .controles .b-ciudad {
   background: #ffffff;
   color: #1d2329;
   border-color: #ffffff;
@@ -208,9 +211,12 @@ body {
 
 /* Texto del botón de pausa */
 .t-seguir { display: none; }
-#pausa:checked ~ .controles .t-pausa { display: none; }
-#pausa:checked ~ .controles .t-seguir { display: inline; }
-#pausa:checked ~ .controles .b-pausa {
+#pausa:checked ~ .controles .t-pausa,
+#pausa:checked ~ .ajustes .t-pausa { display: none; }
+#pausa:checked ~ .controles .t-seguir,
+#pausa:checked ~ .ajustes .t-seguir { display: inline; }
+#pausa:checked ~ .controles .b-pausa,
+#pausa:checked ~ .ajustes .b-pausa {
   background: #f0c419;
   color: #1d2329;
   border-color: #f0c419;
@@ -240,10 +246,36 @@ body {
 /* ---------- GPS (solo si hay JavaScript) ---------- */
 .b-gps { display: none; }
 .con-js .b-gps { display: inline-flex; }
-#gps:checked ~ .controles .b-gps {
+#gps:checked ~ .ajustes .b-gps {
   background: #3fae6a;
   border-color: #3fae6a;
 }
+.b-gps .t-encendido { display: none; }
+#gps:checked ~ .ajustes .b-gps .t-encendido { display: inline; }
+#gps:checked ~ .ajustes .b-gps .t-apagado { display: none; }
+
+/* ---------- Con JavaScript, GPS, Pausa y Luz viven en Ajustes > Controles ----------
+   Sin JavaScript no hay Ajustes, así que Pausa y Luz se quedan en la barra. */
+.con-js .controles .b-pausa,
+.con-js .controles .b-luz { display: none !important; }
+.con-js .controles .separador { display: none; }
+
+.a-control { margin: 10px 0 16px; }
+.a-control h4 { font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7; margin: 18px 0 6px; }
+.a-control .boton { min-width: 260px; }
+.a-luz { display: flex; gap: 8px; flex-wrap: wrap; }
+.a-luz .boton { min-width: 0; flex: 1 1 0; }
+#luz-auto:checked ~ .ajustes .op-auto,
+#luz-dia:checked ~ .ajustes .op-dia { background: #ffffff; color: #1d2329; border-color: #ffffff; }
+#luz-noche:checked ~ .ajustes .op-noche { background: #24315c; border-color: #6d7fb8; }
+
+/* ---------- Pantalla completa (js/pantalla.js) ---------- */
+.b-pantalla[hidden] { display: none; }
+.b-pantalla { padding: 0; width: 64px; font-family: inherit; }
+.b-pantalla svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.b-pantalla .i-salir,
+.en-pantalla-completa .b-pantalla .i-entrar { display: none; }
+.en-pantalla-completa .b-pantalla .i-salir { display: inline; }
 
 .velocimetro {
   position: fixed;
@@ -402,6 +434,9 @@ body {
 .w-carro[data-nivel="pronto"] { background: rgba(170, 120, 20, 0.7); }
 .w-carro[data-nivel="vencido"] { background: rgba(170, 45, 30, 0.75); }
 .w-carro[data-nivel="sin"] [data-w="servicio"] { font-size: 13px; opacity: 0.75; }
+.w-detalle { max-width: 210px; }
+.w-carro.tanque-bajo [data-w="tanque"] { color: #ffcf5c; font-weight: 700; opacity: 1; }
+.w-viaje.en-tranque .w-tit::after { content: " en tranque"; color: #ffb36b; }
 
 .flecha {
   width: 30px;
@@ -459,9 +494,9 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .a-tabs button {
-  flex: 1 1 0; min-width: 72px; min-height: 48px; padding: 0 6px;
+  flex: 1 1 0; min-width: 62px; min-height: 48px; padding: 0 4px;
   border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.22);
-  background: transparent; color: #ffffff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  background: transparent; color: #ffffff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .a-tabs button.activa { background: #ffffff; color: #1d2329; border-color: #ffffff; }
 .a-bloque[hidden] { display: none; }
@@ -492,6 +527,12 @@ body {
 .a-lista { list-style: none; font-size: 15px; opacity: 0.85; }
 .a-lista li { padding: 4px 0; }
 .a-ancho { grid-column: 1 / -1; }
+.a-inline { display: flex; align-items: center; gap: 10px; font-size: 17px; }
+.a-ll-despues[hidden] { display: none !important; }
+.a-llenado { display: flex; align-items: center; gap: 10px; }
+.a-llenado span { flex: 1; }
+.a-consumo { margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); }
+.a-consumo .a-dato { font-size: 15px; }
 .a-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px 14px; margin: 8px 0; }
 .a-tarjeta { display: flex; font-size: 18px; min-height: 44px; cursor: pointer; }
 .a-destino { display: flex; align-items: center; gap: 10px; padding: 6px 0 !important; }

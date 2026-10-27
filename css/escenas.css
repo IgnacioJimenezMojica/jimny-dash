@@ -32,9 +32,25 @@
 .escena-montana .suelo { background-image: url("../svg/montana-suelo.svg"); --t: 3.6s; }
 .escena-montana .nubes { --t: 220s; }
 
-/* ---------- Alrededores: pueblo y campo ---------- */
+/* ---------- Pueblo (antes "Alrededores"; por dentro se sigue llamando alrededores) ---------- */
 .ce-alrededores { background: linear-gradient(#4fb0e8 0%, #8fd0f2 45%, #c9ecfc 70%); }
 .escena-alrededores .lejos { background-image: url("../svg/alrededores-lejos.svg"); --t: 84s; }
 .escena-alrededores .medio { background-image: url("../svg/alrededores-medio.svg"); --t: 11.7s; }
 .escena-alrededores .suelo { background-image: url("../svg/alrededores-suelo.svg"); --t: 2.2s; }
 .escena-alrededores .nubes { --t: 160s; }
+
+/* ---------- Ciudad: torres, edificios y locales ---------- */
+.ce-ciudad { background: linear-gradient(#5aa7dc 0%, #9ccbea 45%, #d3e8f5 70%); }
+.escena-ciudad .lejos { background-image: url("../svg/ciudad-lejos.svg"); --t: 96s; }
+.escena-ciudad .medio { background-image: url("../svg/ciudad-medio.svg"); --t: 13.4s; }
+.escena-ciudad .suelo { background-image: url("../svg/ciudad-suelo.svg"); --t: 2.5s; }
+.escena-ciudad .nubes { --t: 170s; opacity: 0.85; }
+
+/* De noche, ventanas, vitrinas y letreros encendidos */
+#luz-noche:checked ~ .escenario .escena-ciudad .lejos,
+.luz-noche #luz-auto:checked ~ .escenario .escena-ciudad .lejos { background-image: url("../svg/ciudad-lejos-noche.svg"); }
+#luz-noche:checked ~ .escenario .escena-ciudad .medio,
+.luz-noche #luz-auto:checked ~ .escenario .escena-ciudad .medio { background-image: url("../svg/ciudad-medio-noche.svg"); }
+/* La ciudad está iluminada: de noche el velo oscuro es más suave (los edificios ya vienen oscuros en el dibujo) */
+#esc-ciudad:checked ~ #luz-noche:checked ~ .escenario .velo,
+.luz-noche #esc-ciudad:checked ~ #luz-auto:checked ~ .escenario .velo { opacity: 0.45; }

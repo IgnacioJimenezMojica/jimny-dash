@@ -1,0 +1,41 @@
+# Publica en GitHub Pages la versión armada por construir.py (dist/web):
+# trae el manifiesto y el service worker, así se puede instalar como app,
+# abre a pantalla completa y funciona sin internet.
+# Para activarlo: Settings > Pages > Build and deployment > Source: GitHub Actions.
+name: Publicar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicar.outputs.page_url }}
+    steps:
+      - name: Bajar el código
+        uses: actions/checkout@v5
+
+      - name: Armar la página (python construir.py)
+        run: python3 construir.py
+
+      - name: Subir dist/web
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/web
+
+      - name: Publicar
+        id: publicar
+        uses: actions/deploy-pages@v5

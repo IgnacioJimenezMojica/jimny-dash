@@ -25,17 +25,23 @@
   function base() {
     return {
       version: 1,
-      odometro: { base: null, baseFecha: null, sumadoM: 0 },
+      // lecturas: cada vez que se corrige con el tablero (km real y km que la app había visto)
+      odometro: { base: null, baseFecha: null, sumadoM: 0, totalAppM: 0, lecturas: [] },
       mantenimiento: { fecha: null, km: null, meses: 3, kmIntervalo: 5000, historial: [] },
       // Precio máximo de la gasolina de 91 en Panamá y Colón del 16 al 30 de octubre de 2026 (Secretaría de Energía).
       // Consumo: unos 12 km/l, lo que reportan dueños de Jimny 1.5 manual con parrilla y llantas AT (8,3 l/100 km);
       // el dato de fábrica ronda los 14 a 15 km/l.
       // Se guarda por galón; se muestra en la unidad elegida (litro por defecto: en Panamá se compra por litro)
-      combustible: { precioGalon: 4.84, tipo: '91', consumoKmL: 12, precioFecha: '2026-10-16', unidad: 'litro', favoritas: ['Terpel', 'Texaco'] },
+      combustible: { precioGalon: 4.84, tipo: '91', consumoKmL: 12, precioFecha: '2026-10-16', unidad: 'litro', favoritas: ['Terpel', 'Texaco'],
+        // Caja y gasto detenido (ver consumo.js). factorTranque null = el de la caja (1,5 manual, 1,6 automático)
+        caja: 'manual', aire: true, ralentiConAire: 0.8, ralentiSinAire: 0.5, factorTranque: null, tanqueL: 40 },
+      // Modelo de consumo (consumo.js): lo acumulado desde el último llenado, llenados y nivel del tanque
+      consumo: { acum: { c: 0, u: 0, t: 0, hc: 0, hs: 0 }, llenados: [], tanque: { nivel: null, cuando: null } },
       plan: { km: 0, idaVuelta: true },
       viajes: [],
       destinos: { lista: [], activo: null },
       pantalla: { ocultas: [] },   // tarjetas del panel que no se quieren ver
+      escenas: { aprender: true }, // aprender la escena de cada zona (zonas.js)
     };
   }
 
@@ -56,6 +62,12 @@
 
   var datos = leer();
   // La primera versión traía Puma por un error al entender el nombre; la de Nacho es Terpel
+  // Odómetro de una versión anterior (sin lecturas): lo configurado pasa a ser la primera lectura
+  if (datos.odometro.base !== null && !datos.odometro.lecturas.length) {
+    datos.odometro.totalAppM = datos.odometro.sumadoM;
+    datos.odometro.lecturas.push({ fecha: datos.odometro.baseFecha || new Date().toISOString(), km: datos.odometro.base, appM: 0 });
+  }
+  if (!datos.consumo.acum || typeof datos.consumo.acum.hc !== 'number') datos.consumo.acum = { c: 0, u: 0, t: 0, hc: 0, hs: 0 };
   // (una sola vez: si después alguien escoge Puma a propósito, se respeta)
   if (!datos.combustible.favoritasRevisadas) {
     if (JSON.stringify(datos.combustible.favoritas) === '["Puma","Texaco"]') datos.combustible.favoritas = ['Terpel', 'Texaco'];
@@ -73,17 +85,30 @@
     return datos.odometro.base + datos.odometro.sumadoM / 1000;
   }
 
-  function fijarOdometro(km) {
-    datos.odometro.base = Math.max(0, +km);
-    datos.odometro.baseFecha = new Date().toISOString();
-    datos.odometro.sumadoM = 0;
-    guardar();
+  // Corregir con el tablero: se guarda como lectura (no se pierde lo anterior), así entre dos
+  // lecturas se sabe cuántos km anduvo de verdad el carro y cuántos vio la app
+  function fijarOdometro(km, sinGuardar) {
+    var o = datos.odometro;
+    o.base = Math.max(0, +km);
+    o.baseFecha = new Date().toISOString();
+    o.sumadoM = 0;
+    o.lecturas.unshift({ fecha: o.baseFecha, km: o.base, appM: Math.round(o.totalAppM) });
+    if (o.lecturas.length > 100) o.lecturas.length = 100;
+    if (!sinGuardar) guardar();
+  }
+
+  // Km que la app no vio entre dos lecturas del tablero (la más nueva primero)
+  function coberturaEntre(nueva, vieja) {
+    var real = nueva.km - vieja.km, app = (nueva.appM - vieja.appM) / 1000;
+    if (!(real > 0)) return null;
+    return { kmReal: real, kmApp: app, sinRegistrar: Math.max(0, real - app), parte: Math.min(1, app / real) };
   }
 
   var pendienteGuardar = 0;
   function sumarMetros(m) {
     if (!(m > 0)) return;
     datos.odometro.sumadoM += m;
+    datos.odometro.totalAppM += m;
     // Guardar como mucho cada 10 s para no escribir en cada posición
     if (Date.now() - pendienteGuardar > 10000) { pendienteGuardar = Date.now(); guardar(); }
   }
@@ -136,6 +161,7 @@
 
   // Unidad elegida para ver precio y cantidad: 'litro' o 'galon'
   function unidad() { return datos.combustible.unidad === 'galon' ? 'galon' : 'litro'; }
+  function precioLitro() { return datos.combustible.precioGalon / GALON_L; }
   function precioEnUnidad() { var g = datos.combustible.precioGalon; return unidad() === 'litro' ? g / GALON_L : g; }
   function fijarPrecio(valor, enUnidad) { datos.combustible.precioGalon = (enUnidad || unidad()) === 'litro' ? valor * GALON_L : valor; }
   function cantidadDe(km) {
@@ -149,7 +175,10 @@
   function guardarViaje(v) {
     if (!v || v.metros < 300) return;
     var km = v.metros / 1000;
-    datos.viajes.unshift({ inicio: v.inicio, fin: v.ultimaVez, km: Math.round(km * 10) / 10, minutos: Math.round(v.segundos / 60), maxima: Math.round(v.maxima), costo: costoDe(km) });
+    var costo = typeof v.litros === 'number' ? v.litros * precioLitro() : costoDe(km);
+    datos.viajes.unshift({ inicio: v.inicio, fin: v.ultimaVez, km: Math.round(km * 10) / 10, minutos: Math.round(v.segundos / 60), maxima: Math.round(v.maxima), costo: costo,
+      litros: typeof v.litros === 'number' ? Math.round(v.litros * 100) / 100 : null,
+      detenidoMin: Math.round((v.segDetenido || 0) / 60), tranqueMin: Math.round((v.segTranque || 0) / 60) });
     if (datos.viajes.length > 200) datos.viajes.length = 200;
     guardar();
   }
@@ -207,6 +236,7 @@
   function exportar() {
     var respaldo = { app: 'jimny-animado', exportado: new Date().toISOString(), db: datos };
     try { respaldo.viajeActual = JSON.parse(localStorage.getItem('jimny-viaje') || 'null'); } catch (e) { /* nada */ }
+    if (window.jimnyZonas) respaldo.zonas = window.jimnyZonas.exportar();
     return JSON.stringify(respaldo, null, 2);
   }
 
@@ -216,6 +246,7 @@
     try { localStorage.setItem(CLAVE, JSON.stringify(r.db)); } catch (e) { throw new Error('No se pudo guardar en el navegador'); }
     datos = leer(); // completa campos que falten
     if (r.viajeActual) { try { localStorage.setItem('jimny-viaje', JSON.stringify(r.viajeActual)); } catch (e) { /* nada */ } }
+    if (r.zonas && window.jimnyZonas) window.jimnyZonas.importar(r.zonas);
     guardar();
     return datos;
   }
@@ -228,10 +259,10 @@
   window.jimnyDB = {
     datos: function () { return datos; },
     guardar: guardar,
-    odometroKm: odometroKm, fijarOdometro: fijarOdometro, sumarMetros: sumarMetros,
+    odometroKm: odometroKm, fijarOdometro: fijarOdometro, sumarMetros: sumarMetros, coberturaEntre: coberturaEntre,
     estadoMantenimiento: estadoMantenimiento, registrarMantenimiento: registrarMantenimiento, sumarMeses: sumarMeses,
     costoPorKm: costoPorKm, costoDe: costoDe, galonesDe: galonesDe,
-    unidad: unidad, precioEnUnidad: precioEnUnidad, fijarPrecio: fijarPrecio, cantidadDe: cantidadDe, GALON_L: GALON_L,
+    unidad: unidad, precioEnUnidad: precioEnUnidad, precioLitro: precioLitro, fijarPrecio: fijarPrecio, cantidadDe: cantidadDe, GALON_L: GALON_L,
     guardarViaje: guardarViaje, resumenMes: resumenMes,
     destinoActivo: destinoActivo, agregarDestino: agregarDestino, borrarDestino: borrarDestino,
     activarDestino: activarDestino, siguienteDestino: siguienteDestino,

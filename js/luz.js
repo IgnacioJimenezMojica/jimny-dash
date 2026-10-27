@@ -86,6 +86,8 @@
     raiz.classList.toggle('luz-diurna', fase === 'dia');
     var nombre = { dia: 'día', noche: 'noche', crepusculo: fecha.getHours() < 12 ? 'amanecer' : 'atardecer' }[fase];
     if (etiquetaFase) etiquetaFase.textContent = nombre;
+    var enAjustes = document.querySelector('.a-fase');
+    if (enAjustes) enAjustes.textContent = ' (ahora: ' + nombre + ')';
   }
 
   function modoActual() {
