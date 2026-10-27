@@ -50,6 +50,7 @@
 #esc-carretera:checked ~ .escenario .carro   { --t-rueda: 0.52s; }
 #esc-alrededores:checked ~ .escenario .carro { --t-rueda: 0.82s; }
 #esc-ciudad:checked ~ .escenario .carro { --t-rueda: 0.93s; }
+#esc-barriada:checked ~ .escenario .carro { --t-rueda: 1.04s; }
 #esc-tierra:checked ~ .escenario .carro      { --t-rueda: 0.97s; }
 #esc-montana:checked ~ .escenario .carro     { --t-rueda: 1.34s; }
 

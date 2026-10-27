@@ -1,6 +1,6 @@
 # jimny-dash
 
-Animación de mi Jimny 2026 andando por carretera, tierra, montaña, pueblo y ciudad, hecha para la pantalla del carro.
+Animación de mi Jimny 2026 andando por carretera, tierra, montaña, pueblo, barriada y ciudad, hecha para la pantalla del carro.
 
 **En vivo:** https://ignaciojimenezmojica.github.io/jimny-dash/
 

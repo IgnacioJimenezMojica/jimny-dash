@@ -17,7 +17,7 @@
        2. altura de 700 m o más: montaña
        3. camino de tierra: tierra
        4. autopista o troncal: carretera
-       5. zona de ciudad o de pueblo según el mapa
+       5. zona de ciudad, barriada o pueblo según el mapa
        6. tipo de calle y, si no hay datos, la velocidad
      Cambia con calma (el cambio tiene que mantenerse 15 s y
      pasa como mucho uno cada 40 s).
@@ -36,6 +36,8 @@
   // Umbrales para separar ciudad y pueblo. Son iniciales: se afinan con el botón
   // "¿Qué dice el mapa aquí?" en recorridos reales (en Panamá no todo está dibujado).
   var CIUDAD_EDIFICIOS = 40, CIUDAD_TIENDAS = 6, PUEBLO_EDIFICIOS = 8;
+  // Barriada: zona residencial con muchas casas juntas (en el mapa se parece a un pueblo; la diferencia es la densidad)
+  var BARRIADA_EDIFICIOS = 25;
   var BARRIO = /^(residential|living_street|service)$/;
   var TIERRA = /^(unpaved|dirt|gravel|fine_gravel|ground|compacted|sand|earth|mud|grass|pebblestone|rock)$/;
   var ALTURA_MONTANA = 700;    // metros sobre el nivel del mar
@@ -130,7 +132,7 @@
     return z;
   }
 
-  // 'ciudad', 'pueblo' o null, con la razón
+  // 'ciudad', 'barriada', 'pueblo' o null, con la razón
   function clasificarZona(z) {
     if (!z) return null;
     var lu = z.landuse || [], pl = z.place || [];
@@ -140,6 +142,8 @@
     if (ed >= CIUDAD_EDIFICIOS) return { tipo: 'ciudad', razon: ed + ' edificios cerca' };
     if (ti >= CIUDAD_TIENDAS) return { tipo: 'ciudad', razon: ti + ' tiendas cerca' };
     if (pl.indexOf('city') >= 0 && (ed >= 15 || ti >= 2)) return { tipo: 'ciudad', razon: 'dentro de una ciudad' };
+    var barrio = pl.some(function (x) { return /^(suburb|neighbourhood|quarter)$/.test(x); });
+    if ((lu.indexOf('residential') >= 0 || barrio) && ed >= BARRIADA_EDIFICIOS) return { tipo: 'barriada', razon: 'zona residencial con ' + ed + ' casas cerca' };
     if (lu.indexOf('residential') >= 0) return { tipo: 'pueblo', razon: 'zona residencial' };
     if (pl.some(function (x) { return /^(town|village|hamlet|suburb|neighbourhood|quarter|city)$/.test(x); })) return { tipo: 'pueblo', razon: 'dentro de un poblado' };
     if (ed >= PUEBLO_EDIFICIOS) return { tipo: 'pueblo', razon: ed + ' edificios cerca' };
@@ -213,7 +217,7 @@
     if (c && (c.tipo === 'track' || TIERRA.test(c.superficie))) return { escena: 'tierra', razon: 'camino de tierra' };
     if (c && AUTOPISTA.test(c.tipo)) return { escena: 'carretera', razon: 'autopista o troncal' };
     var zona = clasificarZona(estado.area && estado.area.zona);
-    if (zona) return { escena: zona.tipo === 'ciudad' ? 'ciudad' : 'alrededores', razon: zona.razon, fuente: 'mapa' };
+    if (zona) return { escena: { ciudad: 'ciudad', barriada: 'barriada', pueblo: 'alrededores' }[zona.tipo], razon: zona.razon, fuente: 'mapa' };
     if (c) {
       if (CARRETERA.test(c.tipo)) return { escena: 'carretera', razon: 'vía principal' };
       if (BARRIO.test(c.tipo)) return { escena: 'alrededores', razon: 'calle de barrio' };
@@ -299,7 +303,7 @@
       lineas.push('Zona: ' + (z.landuse.length ? 'landuse ' + z.landuse.join(', ') : 'sin landuse') + '; ' + (z.place.length ? 'place ' + z.place.join(', ') : 'sin place'));
       lineas.push('Cerca: ' + (z.edificios === null ? '?' : z.edificios) + ' edificios a 150 m y ' + (z.tiendas === null ? '?' : z.tiendas) + ' tiendas a 200 m');
       var cz = clasificarZona(z);
-      lineas.push('Según el mapa: ' + (cz ? (cz.tipo === 'ciudad' ? 'Ciudad' : 'Pueblo') + ' (' + cz.razon + ')' : 'ni ciudad ni pueblo'));
+      lineas.push('Según el mapa: ' + (cz ? { ciudad: 'Ciudad', barriada: 'Barriada', pueblo: 'Pueblo' }[cz.tipo] + ' (' + cz.razon + ')' : 'ni ciudad, ni barriada, ni pueblo'));
       var dist = Math.round(distanciaM(estado.area.centro, g));
       lineas.push('(Datos pedidos a ' + dist + ' m de aquí, ' + Math.round((Date.now() - estado.area.cuando) / 60000) + ' min atrás)');
     }

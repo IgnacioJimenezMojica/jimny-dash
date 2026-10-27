@@ -19,6 +19,7 @@
 <input class="estado" type="radio" name="escena" id="esc-montana">
 <input class="estado" type="radio" name="escena" id="esc-alrededores">
 <input class="estado" type="radio" name="escena" id="esc-ciudad">
+<input class="estado" type="radio" name="escena" id="esc-barriada">
 <input class="estado" type="checkbox" id="pausa">
 <input class="estado" type="checkbox" id="ocultar">
 <input class="estado" type="checkbox" id="gps">
@@ -58,6 +59,7 @@
   <div class="cielo cielo-escena ce-montana"></div>
   <div class="cielo cielo-escena ce-alrededores"></div>
   <div class="cielo cielo-escena ce-ciudad"></div>
+  <div class="cielo cielo-escena ce-barriada"></div>
   <div class="cielo cielo-crepusculo"></div>
 
   <!-- Clima (js/cielo.js): cielo gris, sol que sigue la altura real del sol y nubes densas -->
@@ -94,6 +96,14 @@
   </div>
 
   <div class="escena escena-alrededores">
+    <div class="capa nubes"></div>
+    <div class="capa lejos"></div>
+    <div class="capa medio"></div>
+    <div class="capa suelo"></div>
+  </div>
+
+  <!-- Barriada: casas de bloque, zinc, tanques de agua, rejas y cables. De noche, ventanas y focos encendidos. -->
+  <div class="escena escena-barriada">
     <div class="capa nubes"></div>
     <div class="capa lejos"></div>
     <div class="capa medio"></div>
@@ -255,6 +265,7 @@
   <label class="boton b-tierra" for="esc-tierra">Tierra</label>
   <label class="boton b-montana" for="esc-montana">Montaña</label>
   <label class="boton b-alrededores" for="esc-alrededores">Pueblo</label>
+  <label class="boton b-barriada" for="esc-barriada">Barriada</label>
   <label class="boton b-ciudad" for="esc-ciudad">Ciudad</label>
   <label class="boton b-escena-auto" for="escena-auto">Auto</label>
   <span class="separador"></span>

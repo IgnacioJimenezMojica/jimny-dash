@@ -58,7 +58,8 @@ body {
 #esc-tierra:checked ~ .escenario .escena-tierra,
 #esc-montana:checked ~ .escenario .escena-montana,
 #esc-alrededores:checked ~ .escenario .escena-alrededores,
-#esc-ciudad:checked ~ .escenario .escena-ciudad {
+#esc-ciudad:checked ~ .escenario .escena-ciudad,
+#esc-barriada:checked ~ .escenario .escena-barriada {
   opacity: 1;
   visibility: visible;
   transition: opacity 0.9s ease, visibility 0s;
@@ -74,7 +75,8 @@ body {
 #esc-tierra:checked ~ .escenario .ce-tierra,
 #esc-montana:checked ~ .escenario .ce-montana,
 #esc-alrededores:checked ~ .escenario .ce-alrededores,
-#esc-ciudad:checked ~ .escenario .ce-ciudad { opacity: 1; }
+#esc-ciudad:checked ~ .escenario .ce-ciudad,
+#esc-barriada:checked ~ .escenario .ce-barriada { opacity: 1; }
 
 /* ---------- Cielos compartidos y velo (noche y atardecer) ---------- */
 .cielo {
@@ -203,7 +205,8 @@ body {
 #esc-tierra:checked ~ .controles .b-tierra,
 #esc-montana:checked ~ .controles .b-montana,
 #esc-alrededores:checked ~ .controles .b-alrededores,
-#esc-ciudad:checked ~ .controles .b-ciudad {
+#esc-ciudad:checked ~ .controles .b-ciudad,
+#esc-barriada:checked ~ .controles .b-barriada {
   background: #ffffff;
   color: #1d2329;
   border-color: #ffffff;

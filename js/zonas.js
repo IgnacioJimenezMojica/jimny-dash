@@ -20,8 +20,8 @@
 
   var CLAVE = 'jimny-zonas';
   var TAM = 0.002;                 // grados por cuadro
-  var ESCENAS = ['carretera', 'tierra', 'montana', 'alrededores', 'ciudad'];
-  var NOMBRES = { carretera: 'Carretera', tierra: 'Tierra', montana: 'Montaña', alrededores: 'Pueblo', ciudad: 'Ciudad' };
+  var ESCENAS = ['carretera', 'tierra', 'montana', 'alrededores', 'ciudad', 'barriada'];
+  var NOMBRES = { carretera: 'Carretera', tierra: 'Tierra', montana: 'Montaña', alrededores: 'Pueblo', ciudad: 'Ciudad', barriada: 'Barriada' };
   var VEL_MIN = 8;                 // km/h para aprender
   var ESCENA_FIRME_MS = 30000;     // la escena tiene que llevar 30 s puesta
   var ENTRE_VOTOS_MS = 10000;      // un voto por cuadro cada 10 s
@@ -75,7 +75,8 @@
     var k = cuadro(lat, lon);
     if (ultimoVoto[k] && ahora - ultimoVoto[k] < ENTRE_VOTOS_MS) return;
     ultimoVoto[k] = ahora;
-    var v = datos.z[k] || (datos.z[k] = [0, 0, 0, 0, 0]);
+    var v = datos.z[k] || (datos.z[k] = []);
+    while (v.length < ESCENAS.length) v.push(0); // cuadros guardados antes de agregar una escena
     v[i]++;
     if (v[i] >= TOPE) for (var j = 0; j < v.length; j++) v[j] = Math.floor(v[j] / 2);
     guardarPronto();
@@ -84,18 +85,19 @@
   // Escena aprendida para un punto: el cuadro pesa doble y sus 8 vecinos uno
   function sugerir(lat, lon) {
     var fi = Math.floor(lat / TAM), co = Math.floor(lon / TAM);
-    var suma = [0, 0, 0, 0, 0], total = 0;
+    var n = ESCENAS.length, suma = [], total = 0;
+    for (var s0 = 0; s0 < n; s0++) suma.push(0);
     for (var a = -1; a <= 1; a++) {
       for (var b = -1; b <= 1; b++) {
         var v = datos.z[(fi + a) + ',' + (co + b)];
         if (!v) continue;
         var peso = a === 0 && b === 0 ? 2 : 1;
-        for (var j = 0; j < 5; j++) { suma[j] += v[j] * peso; total += v[j] * peso; }
+        for (var j = 0; j < n; j++) { var x = v[j] || 0; suma[j] += x * peso; total += x * peso; }
       }
     }
     if (!total) return null;
     var mejor = 0;
-    for (var m = 1; m < 5; m++) if (suma[m] > suma[mejor]) mejor = m;
+    for (var m = 1; m < n; m++) if (suma[m] > suma[mejor]) mejor = m;
     var parte = suma[mejor] / total;
     if (suma[mejor] < MIN_VOTOS || parte < MIN_PARTE) return { escena: null, votos: suma, parte: parte };
     return { escena: ESCENAS[mejor], votos: suma, parte: parte, razon: 'aprendido aquí (' + Math.round(parte * 100) + ' % de ' + total + ' votos)' };

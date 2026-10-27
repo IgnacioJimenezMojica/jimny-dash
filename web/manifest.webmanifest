@@ -1,7 +1,7 @@
 {
   "name": "Jimny animado",
   "short_name": "Jimny",
-  "description": "Animación de un Jimny andando por carretera, tierra, montaña y pueblo",
+  "description": "Animación de un Jimny andando por carretera, tierra, montaña, pueblo, barriada y ciudad",
   "lang": "es",
   "start_url": "./",
   "scope": "./",

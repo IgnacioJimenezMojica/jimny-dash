@@ -54,3 +54,17 @@
 /* La ciudad está iluminada: de noche el velo oscuro es más suave (los edificios ya vienen oscuros en el dibujo) */
 #esc-ciudad:checked ~ #luz-noche:checked ~ .escenario .velo,
 .luz-noche #esc-ciudad:checked ~ #luz-auto:checked ~ .escenario .velo { opacity: 0.45; }
+
+/* ---------- Barriada: casas de bloque en el cerro, calle con parches y muerto ---------- */
+.ce-barriada { background: linear-gradient(#62b2e3 0%, #a3d3ef 45%, #dcefe9 70%); }
+.escena-barriada .lejos { background-image: url("../svg/barriada-lejos.svg"); --t: 107s; }
+.escena-barriada .medio { background-image: url("../svg/barriada-medio.svg"); --t: 15s; }
+.escena-barriada .suelo { background-image: url("../svg/barriada-suelo.svg"); --t: 2.8s; }
+.escena-barriada .nubes { --t: 175s; }
+
+#luz-noche:checked ~ .escenario .escena-barriada .lejos,
+.luz-noche #luz-auto:checked ~ .escenario .escena-barriada .lejos { background-image: url("../svg/barriada-lejos-noche.svg"); }
+#luz-noche:checked ~ .escenario .escena-barriada .medio,
+.luz-noche #luz-auto:checked ~ .escenario .escena-barriada .medio { background-image: url("../svg/barriada-medio-noche.svg"); }
+#esc-barriada:checked ~ #luz-noche:checked ~ .escenario .velo,
+.luz-noche #esc-barriada:checked ~ #luz-auto:checked ~ .escenario .velo { opacity: 0.55; }
