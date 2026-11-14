@@ -41,6 +41,8 @@
   function dinero(n) { return '$' + n.toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function numero(n, dec) { return n.toLocaleString('es-PA', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 }); }
   function ahora() { return window.jimnyLuz ? window.jimnyLuz.ahora() : new Date(); }
+  // Hora corregida en milisegundos (la pantalla a veces arranca con la fecha mal, ver luz.js)
+  function ms() { return window.jimnyLuz && window.jimnyLuz.ahoraMs ? window.jimnyLuz.ahoraMs() : Date.now(); }
 
   function distancia(a, b) {
     var R = 6371000, rad = Math.PI / 180;
@@ -63,7 +65,11 @@
 
   // ---------- Velocidad y viaje ----------
   var viaje = leer('jimny-viaje');
-  if (!viaje || Date.now() - (viaje.ultimaVez || 0) > NUEVO_VIAJE_MS) {
+  var FECHA_MINIMA = window.jimnyLuz ? window.jimnyLuz.FECHA_MINIMA : Date.UTC(2026, 0, 1);
+  // Viaje guardado con la fecha mal (reloj de la pantalla atrasado): se arregla con su duración
+  if (viaje && viaje.inicio < FECHA_MINIMA && viaje.ultimaVez >= FECHA_MINIMA) viaje.inicio = viaje.ultimaVez - (viaje.segundos + (viaje.segDetenido || 0)) * 1000;
+  if (viaje && viaje.ultimaVez < FECHA_MINIMA && viaje.inicio >= FECHA_MINIMA) viaje.ultimaVez = viaje.inicio + (viaje.segundos + (viaje.segDetenido || 0)) * 1000;
+  if (!viaje || ms() - (viaje.ultimaVez || 0) > NUEVO_VIAJE_MS) {
     if (viaje && window.jimnyDB) window.jimnyDB.guardarViaje(viaje); // el viaje anterior pasa al historial
     viaje = nuevoViaje();
   }
@@ -77,7 +83,7 @@
 
   var posicionesSinGuardar = 0;
   function nuevoViaje() {
-    return { metros: 0, segundos: 0, maxima: 0, inicio: Date.now(), ultimaVez: Date.now(),
+    return { metros: 0, segundos: 0, maxima: 0, inicio: ms(), ultimaVez: ms(),
       litros: 0, litrosDetenido: 0, litrosTranque: 0, segDetenido: 0, segTranque: 0 };
   }
 
@@ -119,7 +125,7 @@
         viaje.segundos += dt;
         viaje.maxima = Math.max(viaje.maxima, gps.vel);
         if (window.jimnyConsumo) sumarGasto(window.jimnyConsumo.movimiento(tramo, dt, vDato), dt, false);
-        viaje.ultimaVez = Date.now();
+        viaje.ultimaVez = ms();
       }
     }
     if (d.precision <= PRECISION_VIAJE || !gps.ultimo) gps.ultimo = punto;
@@ -198,6 +204,14 @@
     else pintarGPS();
   }, 5000);
 
+  // Si la hora se corrige (internet o GPS) y resulta que el carro estuvo apagado más de 4 h, viaje nuevo
+  window.addEventListener('jimny-hora', function () {
+    if (ms() - (viaje.ultimaVez || 0) > NUEVO_VIAJE_MS) {
+      if (window.jimnyDB) window.jimnyDB.guardarViaje(viaje);
+      viaje = nuevoViaje(); guardar('jimny-viaje', viaje); pintarGPS();
+    }
+  });
+
   // Se guarda cada 5 s y al salir u ocultar la página (por si se apaga la pantalla de golpe)
   setInterval(function () { guardar('jimny-viaje', viaje); }, 5000);
   window.addEventListener('pagehide', function () { guardar('jimny-viaje', viaje); });
@@ -210,11 +224,7 @@
     if (!db || !tarjeta) return;
     var odo = db.odometroKm();
     poner('odometro', odo === null ? '--' : numero(odo));
-    // Tanque en vivo
-    var tq = window.jimnyConsumo ? window.jimnyConsumo.tanque() : null;
-    var rr = tq ? Math.round(tq.rayitas) : 0;
-    poner('tanque', tq ? 'Tanque ~' + rr + (rr === 1 ? ' rayita, ' : ' rayitas, ') + numero(Math.round(Math.max(0, tq.km) / 10) * 10) + ' km' : '');
-    tarjeta.classList.toggle('tanque-bajo', !!(tq && tq.bajo));
+    pintarTanque();
     var e = db.estadoMantenimiento(ahora());
     tarjeta.dataset.nivel = e.configurado ? e.nivel : 'sin';
     if (!e.configurado) { poner('servicio', 'Configúralo en Ajustes'); return; }
@@ -224,6 +234,21 @@
     poner('servicio', 'Servicio ' + partes.join(' o ')); // p. ej. "Servicio en 12 días o 2,498 km"
   }
   window.addEventListener('jimny-db', pintarGPS);
+
+  // ---------- Tanque: medidor de rayitas y km que quedan ----------
+  function pintarTanque() {
+    var tarjeta = panel.querySelector('.w-tanque');
+    if (!tarjeta) return;
+    var tq = window.jimnyConsumo ? window.jimnyConsumo.tanque() : null;
+    tarjeta.classList.toggle('sin-dato', !tq);
+    var rr = tq ? Math.max(0, Math.min(10, Math.round(tq.rayitas))) : 0;
+    var barras = tarjeta.querySelectorAll('[data-w="tanque-rayitas"] i');
+    for (var i = 0; i < barras.length; i++) barras[i].classList.toggle('llena', i < rr);
+    tarjeta.dataset.nivel = !tq ? 'ok' : rr <= 1 ? 'reserva' : rr <= 2 ? 'bajo' : 'ok';
+    if (!tq) { poner('tanque-km', '--'); poner('tanque-detalle', 'Registra un llenado en Ajustes'); return; }
+    poner('tanque-km', numero(Math.round(Math.max(0, tq.km) / 10) * 10));
+    poner('tanque-detalle', rr + (rr === 1 ? ' rayita, ' : ' rayitas, ') + numero(tq.litros, 0) + ' L' + (rr <= 2 ? ': a llenar' : ''));
+  }
 
   // ---------- Hora y sol ----------
   var proximoSol = null;
@@ -373,7 +398,7 @@
   }
 
   // ---------- Tarjetas que se ven (Ajustes > Pantalla) ----------
-  var NOMBRES_TARJETAS = { vel: 'Velocidad', viaje: 'Viaje', rumbo: 'Rumbo', hora: 'Hora', clima: 'Clima', carro: 'Carro', gas: 'Gasolinera', destino: 'Destino' };
+  var NOMBRES_TARJETAS = { vel: 'Velocidad', viaje: 'Viaje', rumbo: 'Rumbo', hora: 'Hora', clima: 'Clima', carro: 'Carro', tanque: 'Tanque', gas: 'Gasolinera', destino: 'Destino' };
 
   function ocultas() {
     var db = window.jimnyDB;

@@ -68,6 +68,7 @@
     datos.odometro.lecturas.push({ fecha: datos.odometro.baseFecha || new Date().toISOString(), km: datos.odometro.base, appM: 0 });
   }
   if (!datos.consumo.acum || typeof datos.consumo.acum.hc !== 'number') datos.consumo.acum = { c: 0, u: 0, t: 0, hc: 0, hs: 0 };
+  repararFechas();
   // (una sola vez: si después alguien escoge Puma a propósito, se respeta)
   if (!datos.combustible.favoritasRevisadas) {
     if (JSON.stringify(datos.combustible.favoritas) === '["Puma","Texaco"]') datos.combustible.favoritas = ['Terpel', 'Texaco'];
@@ -77,6 +78,57 @@
   function guardar() {
     try { localStorage.setItem(CLAVE, JSON.stringify(datos)); } catch (e) { /* sin almacenamiento */ }
     try { window.dispatchEvent(new CustomEvent('jimny-db')); } catch (e) { /* navegador viejo */ }
+  }
+
+  // ---------- Fechas guardadas con el reloj de la pantalla atrasado ----------
+  // La pantalla del carro a veces arranca con la fecha 15 de enero de 2025. Lo que se guardó así
+  // (lecturas, llenados, viajes) se arregla con lo que sí se sabe: los km y las fechas buenas
+  // de alrededor, o la duración del viaje. Se puede correr las veces que sea (no toca lo bueno).
+  function repararFechas() {
+    var MIN = Date.UTC(2026, 0, 1), cambios = 0;
+    var ms = function (iso) { return new Date(iso).getTime(); };
+    var L = datos.odometro.lecturas; // la más nueva primero (km de mayor a menor)
+    var buenas = L.filter(function (l) { return ms(l.fecha) >= MIN; });
+    // km por milisegundo, con las lecturas buenas (si no alcanza: 70 km por día)
+    var ritmo = 70 / 86400000;
+    if (buenas.length >= 2) {
+      var a = buenas[buenas.length - 1], b = buenas[0], dt = ms(b.fecha) - ms(a.fecha);
+      if (dt > 0 && b.km > a.km) ritmo = (b.km - a.km) / dt;
+    }
+    function fechaPorKm(km, lista) {
+      var nueva = null, vieja = null;
+      lista.forEach(function (l) {
+        if (ms(l.fecha) < MIN) return;
+        if (l.km >= km && (!nueva || l.km < nueva.km)) nueva = l;
+        if (l.km <= km && (!vieja || l.km > vieja.km)) vieja = l;
+      });
+      var t;
+      if (nueva && vieja && nueva.km !== vieja.km) t = ms(vieja.fecha) + (km - vieja.km) / (nueva.km - vieja.km) * (ms(nueva.fecha) - ms(vieja.fecha));
+      else if (vieja) t = ms(vieja.fecha) + (km - vieja.km) / ritmo;
+      else if (nueva) t = ms(nueva.fecha) - (nueva.km - km) / ritmo;
+      else return null;
+      return new Date(Math.round(t)).toISOString();
+    }
+    L.forEach(function (l) {
+      if (ms(l.fecha) >= MIN) return;
+      var f = fechaPorKm(l.km, L);
+      if (f) { l.fecha = f; l.fechaEstimada = true; cambios++; }
+    });
+    if (L.length && (!datos.odometro.baseFecha || ms(datos.odometro.baseFecha) < MIN)) { datos.odometro.baseFecha = L[0].fecha; cambios++; }
+    datos.consumo.llenados.forEach(function (f) {
+      if (ms(f.fecha) >= MIN) return;
+      var igual = L.filter(function (l) { return l.km === f.km; })[0];
+      var nueva = igual ? igual.fecha : fechaPorKm(f.km, L);
+      if (nueva) { f.fecha = nueva; f.fechaEstimada = true; cambios++; }
+    });
+    var t = datos.consumo.tanque;
+    if (t.cuando && ms(t.cuando) < MIN && datos.consumo.llenados.length) { t.cuando = datos.consumo.llenados[datos.consumo.llenados.length - 1].fecha; cambios++; }
+    datos.viajes.forEach(function (v) {
+      var dura = ((v.minutos || 0) + (v.detenidoMin || 0)) * 60000;
+      if (v.inicio < MIN && v.fin >= MIN) { v.inicio = v.fin - dura; cambios++; }
+      else if (v.inicio >= MIN && (v.fin < MIN || v.fin < v.inicio)) { v.fin = v.inicio + dura; cambios++; }
+    });
+    return cambios;
   }
 
   // ---------- Odómetro ----------
@@ -90,7 +142,7 @@
   function fijarOdometro(km, sinGuardar) {
     var o = datos.odometro;
     o.base = Math.max(0, +km);
-    o.baseFecha = new Date().toISOString();
+    o.baseFecha = new Date(window.jimnyLuz && window.jimnyLuz.ahoraMs ? window.jimnyLuz.ahoraMs() : Date.now()).toISOString();
     o.sumadoM = 0;
     o.lecturas.unshift({ fecha: o.baseFecha, km: o.base, appM: Math.round(o.totalAppM) });
     if (o.lecturas.length > 100) o.lecturas.length = 100;
@@ -234,7 +286,7 @@
 
   // ---------- Respaldo ----------
   function exportar() {
-    var respaldo = { app: 'jimny-animado', exportado: new Date().toISOString(), db: datos };
+    var respaldo = { app: 'jimny-animado', exportado: new Date(window.jimnyLuz && window.jimnyLuz.ahoraMs ? window.jimnyLuz.ahoraMs() : Date.now()).toISOString(), db: datos };
     try { respaldo.viajeActual = JSON.parse(localStorage.getItem('jimny-viaje') || 'null'); } catch (e) { /* nada */ }
     if (window.jimnyZonas) respaldo.zonas = window.jimnyZonas.exportar();
     return JSON.stringify(respaldo, null, 2);
@@ -245,6 +297,7 @@
     if (!r || r.app !== 'jimny-animado' || !r.db || r.db.version !== 1) throw new Error('El archivo no es un respaldo del Jimny animado');
     try { localStorage.setItem(CLAVE, JSON.stringify(r.db)); } catch (e) { throw new Error('No se pudo guardar en el navegador'); }
     datos = leer(); // completa campos que falten
+    repararFechas();
     if (r.viajeActual) { try { localStorage.setItem('jimny-viaje', JSON.stringify(r.viajeActual)); } catch (e) { /* nada */ } }
     if (r.zonas && window.jimnyZonas) window.jimnyZonas.importar(r.zonas);
     guardar();
@@ -260,7 +313,7 @@
     datos: function () { return datos; },
     guardar: guardar,
     odometroKm: odometroKm, fijarOdometro: fijarOdometro, sumarMetros: sumarMetros, coberturaEntre: coberturaEntre,
-    estadoMantenimiento: estadoMantenimiento, registrarMantenimiento: registrarMantenimiento, sumarMeses: sumarMeses,
+    repararFechas: repararFechas, estadoMantenimiento: estadoMantenimiento, registrarMantenimiento: registrarMantenimiento, sumarMeses: sumarMeses,
     costoPorKm: costoPorKm, costoDe: costoDe, galonesDe: galonesDe,
     unidad: unidad, precioEnUnidad: precioEnUnidad, precioLitro: precioLitro, fijarPrecio: fijarPrecio, cantidadDe: cantidadDe, GALON_L: GALON_L,
     guardarViaje: guardarViaje, resumenMes: resumenMes,

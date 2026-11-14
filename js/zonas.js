@@ -5,6 +5,9 @@
      en Panamá), solo con las coordenadas: no necesita internet.
    - Mientras maneja con una escena puesta A MANO (no en Auto),
      cada cuadro por donde pasa suma un voto para esa escena.
+     Solo cuenta una escena que se eligió tocándola en este
+     encendido: la que queda puesta al abrir (por ejemplo la
+     Carretera de siempre) no se aprende, porque no dice nada.
      Solo en movimiento y si la escena lleva 30 s o más puesta,
      para no aprender cambios de prueba. Un voto por cuadro cada
      10 s como mucho.
@@ -31,6 +34,7 @@
   var datos = leer();
   var ultimoVoto = {};             // cuadro -> hora del último voto (solo en memoria)
   var escenaDesde = Date.now();
+  var elegidaAMano = false;        // en este encendido se tocó una escena
   var pendiente = false;
 
   function leer() {
@@ -66,7 +70,11 @@
 
   // Cambio de escena: empieza a contar los 30 s
   document.addEventListener('change', function (ev) {
-    if (ev.target && ev.target.name === 'escena') escenaDesde = Date.now();
+    if (ev.target && ev.target.name === 'escena') { escenaDesde = Date.now(); elegidaAMano = true; }
+  });
+  // Tocar la escena que ya está puesta no cambia nada, pero sí cuenta como elegida
+  document.addEventListener('click', function (ev) {
+    if (ev.target && ev.target.name === 'escena' && !elegidaAMano) { elegidaAMano = true; escenaDesde = Date.now(); }
   });
 
   function votar(lat, lon, escena, ahora) {
@@ -124,6 +132,7 @@
     if (!aprendiendo()) return;
     var auto = document.getElementById('escena-auto');
     if (auto && auto.checked) return;                 // en Auto no aprende de sí mismo
+    if (!elegidaAMano) return;                        // la escena que quedó puesta al abrir no se aprende
     var kmh = d.fuente === 'equipo' ? d.kmh : d.kmhSuave;
     if (typeof kmh !== 'number' || kmh < VEL_MIN) return;
     if (typeof d.precision === 'number' && d.precision > 50) return;

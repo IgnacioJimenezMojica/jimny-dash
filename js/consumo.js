@@ -144,9 +144,12 @@
         for (j = 0; j < k; j++) XtX[i][j] += peso * f.x[i] * f.x[j];
       }
     });
-    // Fuerza del valor inicial: como unos 2 tanques típicos de cada cosa
+    // Fuerza del valor inicial: como unos 2 tanques típicos de cada cosa, y nunca menos que
+    // 40 km de carretera o ciudad, 25 km de tranque o 3 horas detenido. Así una parte con
+    // poquitos datos (por ejemplo el tranque, con 10 km en un tanque) no se mueve a lo loco.
+    var MINIMO = [40 * 40, 40 * 40, 25 * 25, 3 * 3, 3 * 3];
     for (i = 0; i < k; i++) {
-      var lam = 2 * media2[i] + 1e-6;
+      var lam = 2 * media2[i] + MINIMO[i];
       XtX[i][i] += lam;
       Xty[i] += lam * t0[i];
     }
@@ -223,7 +226,7 @@
     if (ultimo && km <= ultimo.km) throw new Error('El kilometraje tiene que ser mayor que el del último llenado (' + Math.round(ultimo.km) + ' km)');
     if (litros > tanqueL() + 2) throw new Error('Son más litros de los que caben en el tanque (' + tanqueL() + ' L)');
     var f = {
-      fecha: d.fecha || new Date().toISOString(), litros: litros, km: km,
+      fecha: d.fecha || new Date(window.jimnyLuz && window.jimnyLuz.ahoraMs ? window.jimnyLuz.ahoraMs() : Date.now()).toISOString(), litros: litros, km: km,
       rayitasAntes: typeof d.rayitasAntes === 'number' ? d.rayitasAntes : null,
       aTope: d.aTope !== false, rayitasDespues: d.aTope === false && typeof d.rayitasDespues === 'number' ? d.rayitasDespues : null,
       precioLitro: d.precioLitro > 0 ? +d.precioLitro : null,
@@ -258,7 +261,7 @@
   // El tablero marca otra cosa: se corrige el nivel
   function corregirRayitas(r) {
     M().tanque.nivel = litrosDeRayitas(+r);
-    M().tanque.cuando = new Date().toISOString();
+    M().tanque.cuando = new Date(window.jimnyLuz && window.jimnyLuz.ahoraMs ? window.jimnyLuz.ahoraMs() : Date.now()).toISOString();
     db.guardar();
   }
 

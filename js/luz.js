@@ -1,10 +1,18 @@
 /* =========================================================
    luz.js: día, atardecer/amanecer y noche en automático.
 
-   - La hora sale del reloj de la pantalla (el del sistema).
-   - En la versión web (HTTPS) además se compara con la hora
-     del servidor (cabecera Date de la propia página). Si el
-     reloj de la pantalla está corrido más de 90 s, se corrige.
+   - La hora sale del reloj de la pantalla (el del sistema), pero
+     la pantalla del carro a veces arranca con la fecha 15 de enero
+     de 2025 (no guarda la hora apagada). Por eso, en este orden:
+       1. internet: la cabecera Date de la propia página (versión
+          web), si el reloj está corrido más de 90 s;
+       2. GPS: la hora de la posición, si va adelante del reloj
+          (el GPS trae la hora de los satélites);
+       3. estimada: si el reloj marca antes de la última hora buena
+          que se vio (o antes de que existiera la app), se usa esa
+          última hora buena hasta que llegue 1 o 2.
+     La corrección vale solo para este encendido: al abrir de
+     nuevo se vuelve a revisar (el reloj puede venir bien).
    - No usa horas fijas: calcula la altura del sol para la
      ubicación (la del GPS si ya hay una, si no Ciudad de Panamá).
        sol a más de 3 grados ........ día
@@ -20,15 +28,44 @@
   var etiquetaFase = document.querySelector('.l-auto .fase');
   var PANAMA = { lat: 8.9824, lon: -79.5199 };
   var SOL_DIA = 3, SOL_NOCHE = -7;
-  var estado = { desfase: 0, fuenteHora: 'pantalla', fase: null, elevacion: null };
+  var estado = { desfase: 0, fuenteHora: 'pantalla', fase: null, elevacion: null, confiable: true };
+  // Un reloj que marque antes de 2026 está mal seguro (la pantalla arranca en enero de 2025)
+  var FECHA_MINIMA = Date.UTC(2026, 0, 1);
 
   // ---------- Hora ----------
-  function ahora() { return new Date(Date.now() + estado.desfase); }
+  function ahoraMs() { return Date.now() + estado.desfase; }
+  function ahora() { return new Date(ahoraMs()); }
 
-  try {
-    var guardado = JSON.parse(localStorage.getItem('jimny-desfase') || 'null');
-    if (guardado && typeof guardado.desfase === 'number') { estado.desfase = guardado.desfase; estado.fuenteHora = 'internet (guardada)'; }
-  } catch (e) { /* sin almacenamiento */ }
+  // Última hora buena que se vio (se guarda cada minuto)
+  function leerUltima() { try { var u = JSON.parse(localStorage.getItem('jimny-reloj') || 'null'); return u && u.ms > FECHA_MINIMA ? u.ms : FECHA_MINIMA; } catch (e) { return FECHA_MINIMA; } }
+  function guardarUltima() { var t = ahoraMs(); if (t > leerUltima()) try { localStorage.setItem('jimny-reloj', JSON.stringify({ ms: t })); } catch (e) { /* nada */ } }
+
+  function fijarDesfase(ms, fuente) {
+    estado.desfase = ms;
+    estado.fuenteHora = fuente;
+    estado.confiable = true;
+    guardarUltima();
+    try { window.dispatchEvent(new CustomEvent('jimny-hora', { detail: { desfase: ms, fuente: fuente } })); } catch (e) { /* nada */ }
+  }
+
+  // Al arrancar: si el reloj marca antes de lo último que se vio, está atrasado
+  (function () {
+    try { localStorage.removeItem('jimny-desfase'); } catch (e) { /* era de la versión anterior: se aplicaba aunque el reloj viniera bien */ }
+    var ultima = leerUltima();
+    if (Date.now() < ultima - 5 * 60000) {
+      estado.desfase = ultima - Date.now();
+      estado.fuenteHora = 'estimada (el reloj de la pantalla vino atrasado; falta internet o GPS para saber la hora exacta)';
+      estado.confiable = false;
+    }
+  })();
+
+  // La hora del GPS: se usa si va adelante del reloj (sirve cuando la pantalla arranca atrasada)
+  function horaDelGPS(ms) {
+    if (typeof ms !== 'number' || ms < FECHA_MINIMA) return;
+    var dif = ms - Date.now();
+    if (estado.fuenteHora.indexOf('internet') === 0) return;      // internet manda
+    if (dif > 120000 && Math.abs(dif - estado.desfase) > 120000) { fijarDesfase(dif, 'GPS (reloj de la pantalla atrasado ' + Math.round(dif / 60000) + ' min)'); actualizar(); }
+  }
 
   function revisarHoraInternet() {
     if (!/^https?:$/.test(location.protocol) || !window.fetch || navigator.onLine === false) return;
@@ -40,9 +77,8 @@
       var servidor = new Date(cabecera).getTime() + (despues - antes) / 2;
       var diferencia = servidor - despues;
       // La cabecera solo trae segundos; menos de 90 s de diferencia no vale la pena
-      estado.desfase = Math.abs(diferencia) > 90000 ? diferencia : 0;
-      estado.fuenteHora = estado.desfase ? 'internet (reloj de la pantalla corrido ' + Math.round(diferencia / 60000) + ' min)' : 'pantalla (confirmada por internet)';
-      try { localStorage.setItem('jimny-desfase', JSON.stringify({ desfase: estado.desfase, cuando: despues })); } catch (e) { /* sin almacenamiento */ }
+      var d = Math.abs(diferencia) > 90000 ? diferencia : 0;
+      fijarDesfase(d, d ? 'internet (reloj de la pantalla corrido ' + Math.round(diferencia / 60000) + ' min)' : 'internet (el reloj de la pantalla está bien)');
       actualizar();
     }).catch(function () { /* sin internet: se queda con la hora de la pantalla */ });
   }
@@ -108,12 +144,17 @@
 
   actualizar();
   setInterval(actualizar, 60000);
-  // La primera revisión espera unos segundos para no competir con la carga de la página
-  setTimeout(revisarHoraInternet, 3000);
+  setInterval(function () { if (estado.confiable) guardarUltima(); }, 60000);
+  window.addEventListener('pagehide', function () { if (estado.confiable) guardarUltima(); });
+  // La hora de cada posición del GPS
+  window.addEventListener('jimny-gps', function (ev) { var d = ev.detail || {}; if (!d.apagado) horaDelGPS(d.t); });
+  // La primera revisión espera un poco para no competir con la carga de la página; si el
+  // reloj vino atrasado se revisa enseguida
+  setTimeout(revisarHoraInternet, estado.confiable ? 3000 : 500);
   setInterval(revisarHoraInternet, 6 * 3600000);
   window.addEventListener('online', revisarHoraInternet);
   // Al volver a la página (por ejemplo después de apagar el carro) se recalcula enseguida
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') actualizar(); });
 
-  window.jimnyLuz = { estado: estado, actualizar: actualizar, elevacionSol: elevacionSol, ahora: ahora };
+  window.jimnyLuz = { estado: estado, actualizar: actualizar, elevacionSol: elevacionSol, ahora: ahora, ahoraMs: ahoraMs, FECHA_MINIMA: FECHA_MINIMA, horaDelGPS: horaDelGPS };
 })();

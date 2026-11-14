@@ -84,7 +84,7 @@
 
     pintarGasolina();
 
-    var mes = db.resumenMes();
+    var mes = db.resumenMes(window.jimnyLuz ? window.jimnyLuz.ahora() : undefined);
     poner('mes', 'Este mes: ' + num(mes.km, 1) + ' km en ' + mes.viajes + (mes.viajes === 1 ? ' viaje' : ' viajes') + ', ' + dinero(mes.costo) + ' en gasolina.');
     var lv = a('viajes');
     lv.innerHTML = '';
@@ -246,6 +246,7 @@
       'Página segura (necesario para el GPS): ' + (window.isSecureContext ? 'sí' : 'no'),
       'Movimiento reducido: ' + (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'sí' : 'no'),
       'Internet según el navegador: ' + (navigator.onLine === false ? 'sin conexión' : 'conectado'),
+      'Hora: ' + (window.jimnyLuz ? window.jimnyLuz.ahora().toLocaleString('es-PA') + ', según ' + window.jimnyLuz.estado.fuenteHora : new Date().toLocaleString('es-PA')),
     ];
     lista.innerHTML = '';
     items.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; lista.appendChild(li); });

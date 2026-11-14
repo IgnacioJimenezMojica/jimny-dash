@@ -438,7 +438,20 @@ body {
 .w-carro[data-nivel="vencido"] { background: rgba(170, 45, 30, 0.75); }
 .w-carro[data-nivel="sin"] [data-w="servicio"] { font-size: 13px; opacity: 0.75; }
 .w-detalle { max-width: 210px; }
-.w-carro.tanque-bajo [data-w="tanque"] { color: #ffcf5c; font-weight: 700; opacity: 1; }
+/* Tanque: medidor como el del tablero (10 rayitas de E a F) */
+.medidor { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.medidor .bomba { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+.medidor .letra { font-size: 14px; font-weight: 700; opacity: 0.7; }
+.rayitas { display: inline-flex; align-items: flex-end; gap: 3px; }
+.rayitas i { display: block; width: 9px; height: 26px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); }
+.rayitas i.llena { background: #ffffff; }
+.w-tanque[data-nivel="bajo"] .rayitas i.llena { background: #ffb02e; }
+.w-tanque[data-nivel="reserva"] .rayitas i.llena { background: #ff5a4f; animation: latido 1.2s ease-in-out infinite; }
+.w-tanque[data-nivel="bajo"], .w-tanque[data-nivel="reserva"] { background: rgba(120, 70, 10, 0.72); }
+.w-tanque[data-nivel="bajo"] [data-w="tanque-detalle"], .w-tanque[data-nivel="reserva"] [data-w="tanque-detalle"] { color: #ffcf5c; font-weight: 700; }
+.w-tanque .w-num { font-size: 38px; }
+.w-tanque.sin-dato .w-num { opacity: 0.5; }
+.w-tanque.sin-dato [data-w="tanque-detalle"] { font-size: 13px; opacity: 0.75; }
 .w-viaje.en-tranque .w-tit::after { content: " en tranque"; color: #ffb36b; }
 
 .flecha {
