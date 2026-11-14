@@ -37,7 +37,7 @@
         caja: 'manual', aire: true, ralentiConAire: 0.8, ralentiSinAire: 0.5, factorTranque: null, tanqueL: 40 },
       // Modelo de consumo (consumo.js): lo acumulado desde el último llenado, llenados y nivel del tanque
       consumo: { acum: { c: 0, u: 0, t: 0, hc: 0, hs: 0 }, llenados: [], tanque: { nivel: null, cuando: null } },
-      plan: { km: 0, idaVuelta: true },
+      plan: { km: 0, idaVuelta: true, kmCiudad: 15 },
       viajes: [],
       destinos: { lista: [], activo: null },
       pantalla: { ocultas: [] },   // tarjetas del panel que no se quieren ver

@@ -294,8 +294,41 @@
     return { litros: nivel, rayitas: r, km: km, bajo: r <= 2 };
   }
 
+  // ---------- Plan de viaje con el consumo aprendido ----------
+  // Cómo maneja Nacho en ciudad, sacado de todo lo que vio la app: qué parte de los km de
+  // ciudad son tranque y cuánto tiempo detenido le toca por km de ciudad. Sin datos todavía:
+  // 7 % de tranque y 1 minuto detenido por km (lo que se midió en las primeras semanas).
+  function manejoEnCiudad() {
+    var u = 0, t = 0, h = 0;
+    var sumar = function (a) { if (!a) return; u += a.u || 0; t += a.t || 0; h += (a.hc || 0) + (a.hs || 0); };
+    M().llenados.forEach(function (f) { sumar(f.acum); });
+    sumar(M().acum);
+    var km = (u + t) / 1000;
+    if (km < 30) return { tranque: 0.07, horasPorKm: 1 / 60, km: km, propio: false };
+    return { tranque: t / 1000 / km, horasPorKm: h / 3600 / km, km: km, propio: true };
+  }
+
+  // kmTotal: lo que se va a recorrer; kmCiudad: la parte en ciudad (salir y llegar)
+  function planViaje(kmTotal, kmCiudad) {
+    kmTotal = Math.max(0, +kmTotal || 0);
+    kmCiudad = Math.max(0, Math.min(kmTotal, +kmCiudad || 0));
+    var co = coeficientes(), c = co.coef, mc = manejoEnCiudad();
+    var kmCarretera = kmTotal - kmCiudad;
+    var conAire = C().aire !== false;
+    var litrosCarretera = kmCarretera * c[0];
+    var litrosCiudad = kmCiudad * ((1 - mc.tranque) * c[1] + mc.tranque * c[2] + mc.horasPorKm * c[conAire ? 3 : 4]);
+    var litros = litrosCarretera + litrosCiudad;
+    return {
+      km: kmTotal, kmCiudad: kmCiudad, kmCarretera: kmCarretera, litros: litros,
+      costo: litros * db.precioLitro(), kmL: litros > 0 ? kmTotal / litros : null,
+      kmLCarretera: 1 / c[0], kmLCiudad: kmCiudad > 0 ? kmCiudad / litrosCiudad : null,
+      aprendido: co.aprendido, tanques: co.n, ciudad: mc,
+    };
+  }
+
   // Gasto de un recorrido según sus partes (para mostrar cuánto fue detenido y en tranque)
   window.jimnyConsumo = {
+    planViaje: planViaje, manejoEnCiudad: manejoEnCiudad,
     movimiento: movimiento, detenido: detenido, enTranque: enTranque,
     agregarLlenado: agregarLlenado, borrarLlenado: borrarLlenado, corregirRayitas: corregirRayitas,
     coeficientes: coeficientes, iniciales: iniciales, factorTranque: factorTranque,

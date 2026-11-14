@@ -46,6 +46,7 @@
     $('a-ll-precio').value = +db.precioLitro().toFixed(3);
     $('a-plan-km').value = d.plan.km || '';
     $('a-plan-iv').checked = !!d.plan.idaVuelta;
+    $('a-plan-ciudad').value = d.plan.kmCiudad === undefined ? 15 : d.plan.kmCiudad;
     pintar();
   }
 
@@ -77,10 +78,23 @@
     poner('gas-ayuda', 'Valores iniciales: precio máximo de la gasolina de 91 ($1.28 el litro, $4.84 el galón) en Panamá y Colón desde el 16 de octubre de 2026 (cambia cada 15 días). ' +
       'Consumo: unos 12 km/l, lo que reportan dueños de Jimny 1.5 manual con parrilla y llantas AT; el dato de fábrica ronda 14 a 15 km/l.');
 
-    var km = (+d.plan.km || 0) * (d.plan.idaVuelta ? 2 : 1);
-    var cant = km > 0 ? db.cantidadDe(km) : null;
-    if (km > 0 && ck !== null && cant) poner('plan', num(km) + ' km: ' + num(cant.valor, 1) + ' ' + cant.unidad + ', ' + dinero(db.costoDe(km)));
-    else poner('plan', 'Escribe la distancia para calcular el costo.');
+    // Plan de viaje: viaje mixto con el consumo aprendido (consumo.js): la ciudad con semáforos,
+    // tranque y tiempo detenido como maneja Nacho, y el resto como carretera
+    var tramos = d.plan.idaVuelta ? 2 : 1;
+    var km = (+d.plan.km || 0) * tramos;
+    var K = window.jimnyConsumo;
+    if (km > 0 && K) {
+      var ciudadTramo = d.plan.kmCiudad === undefined ? 15 : +d.plan.kmCiudad;
+      var pv = K.planViaje(km, Math.min(+d.plan.km || 0, ciudadTramo) * tramos);
+      var enUnidad = db.unidad() === 'litro' ? pv.litros : pv.litros / db.GALON_L;
+      poner('plan', num(km) + ' km: ' + num(enUnidad, 1) + (db.unidad() === 'litro' ? ' litros, ' : ' galones, ') + dinero(pv.costo));
+      var partes = [];
+      if (pv.kmCarretera > 0) partes.push(num(pv.kmCarretera) + ' km de carretera a ' + num(pv.kmLCarretera, 1) + ' km/L');
+      if (pv.kmCiudad > 0) partes.push(num(pv.kmCiudad) + ' km de ciudad a ' + num(pv.kmLCiudad, 1) + ' km/L (con semáforos, ' + num(pv.ciudad.tranque * 100) + ' % de tranque y ' + num(pv.ciudad.horasPorKm * 60, 1) + ' min detenido por km)');
+      poner('plan-detalle', partes.join('; ') + '. En promedio ' + num(pv.kmL, 1) + ' km/L.');
+      poner('plan-ayuda', (pv.aprendido ? 'Con tu consumo aprendido de ' + pv.tanques + ' tanques' : 'Con los valores iniciales (se ajustan solos con tus llenados)') +
+        (pv.ciudad.propio ? ' y tu forma de manejar en ciudad (' + num(pv.ciudad.km) + ' km vistos).' : '.') + ' Los km de ciudad son por tramo: al salir y al llegar.');
+    } else { poner('plan', 'Escribe la distancia para calcular el costo.'); poner('plan-detalle', ''); poner('plan-ayuda', ''); }
 
     pintarGasolina();
 
@@ -316,9 +330,12 @@
     var p = db.datos().plan;
     p.km = parseFloat($('a-plan-km').value) || 0;
     p.idaVuelta = $('a-plan-iv').checked;
+    var kc = parseFloat($('a-plan-ciudad').value);
+    p.kmCiudad = kc >= 0 ? kc : 15;
     db.guardar(); pintar();
   }
   $('a-plan-km').addEventListener('input', guardarPlan);
+  $('a-plan-ciudad').addEventListener('input', guardarPlan);
 
   // Cambiar litros/galones: convierte el precio que se ve y lo guarda de una vez
   $('a-unidad').addEventListener('change', function () {
